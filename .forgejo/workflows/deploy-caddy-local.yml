@@ -62,7 +62,7 @@ jobs:
           /usr/bin/caddy version
           echo "----------------------------------------"
           echo "Список установленных плагинов (Проверка L4):"
-          /usr/bin/caddy list-modules | grep -i "l4" || echo "Плагин L4 не найден!"
+          /usr/bin/caddy list-modules | grep -i "layer4" || echo "Плагин L4 не найден!"
           echo "----------------------------------------"
           echo "Статус Systemd (Аптайм):"
           systemctl status caddy | grep "Active:"
