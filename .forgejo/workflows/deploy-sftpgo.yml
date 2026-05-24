@@ -1,0 +1,50 @@
+name: Deploy SFTPGo Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Какую версию развернуть? (например: v2.7.1)'
+        required: true
+        default: 'v2.7.1'
+        type: string
+
+jobs:
+  deploy:
+    runs-on: docker
+    container:
+      image: alpine:latest
+      
+    steps:
+      - name: Setup SSH
+        run: |
+          apk add --no-cache openssh-client curl
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+
+      - name: Update SFTPGo in LXC
+        env:
+          TARGET_VERSION: ${{ github.event.inputs.target_version }}
+          LXC_IP: "172.20.6.8" # IP ТВОЕГО КОНТЕЙНЕРА!
+        run: |
+          ssh root@$LXC_IP << EOF
+          set -e
+          echo "1. Останавливаем службу..."
+          systemctl stop sftpgo
+          
+          echo "2. Скачиваем новый бинарник..."
+          curl -k -fSR -o /usr/bin/sftpgo "https://git.yadr00.internal/api/packages/Build/generic/sftpgo/${TARGET_VERSION}/sftpgo"
+          chmod +x /usr/bin/sftpgo
+          
+          echo "3. Запускаем службу..."
+          systemctl start sftpgo
+          
+          echo "4. Проверяем статус..."
+          systemctl is-active --quiet sftpgo && echo "SFTPGo УСПЕШНО ЗАПУЩЕН!" || { echo "ОШИБКА ЗАПУСКА!"; exit 1; }
+          
+          echo "----------------------------------------"
+          /usr/bin/sftpgo -v
+          systemctl status sftpgo | grep "Active:"
+          EOF
