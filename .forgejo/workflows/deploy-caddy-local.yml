@@ -1,0 +1,69 @@
+name: Deploy Caddy (Local)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Какую версию развернуть? (например: v2.8.4)'
+        required: true
+        default: 'v2.8.4'
+        type: string
+
+jobs:
+  deploy:
+    runs-on: docker
+    container:
+      # Используем легкий Alpine с SSH-клиентом
+      image: alpine:latest
+      
+    steps:
+      - name: Setup SSH
+        run: |
+          apk add --no-cache openssh-client curl bash
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Отключаем проверку ключа хоста для автоматики
+          echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+
+      - name: Update Caddy Binary via SSH
+        env:
+          TARGET_VERSION: ${{ github.event.inputs.target_version }}
+          # IP твоего LXC-контейнера с Caddy на узле yadr01
+          CADDY_IP: "172.20.6.2"
+        run: |
+          echo "Подключаемся к LXC ($CADDY_IP) и скачиваем версию $TARGET_VERSION..."
+          
+          # Открываем SSH-сессию (EOF без кавычек, чтобы переменная TARGET_VERSION подставилась)
+          ssh root@$CADDY_IP << EOF
+          set -e
+          
+          echo "1. Скачиваем новый бинарник во временную папку..."
+          # Качаем файл напрямую из нашего реестра (флаг -k игнорирует SSL, т.к. внутри LXC может не быть сертификата Step-CA)
+          curl -k -fSR -o /tmp/caddy_new "https://git.yadr00.internal/api/packages/Build/generic/caddy/${TARGET_VERSION}/caddy"
+          
+          echo "2. Выдаем права на исполнение..."
+          chmod +x /tmp/caddy_new
+          
+          echo "3. Заменяем бинарник на лету..."
+          # mv атомарно заменяет файл. Текущий процесс Caddy не упадет (Linux держит файл в памяти).
+          mv /tmp/caddy_new /usr/bin/caddy
+          
+          echo "4. Выполняем бесшовный рестарт службы..."
+          systemctl restart caddy
+          
+          echo "5. Проверяем статус и версию..."
+          systemctl is-active --quiet caddy && echo "Caddy УСПЕШНО ПЕРЕЗАПУЩЕН!" || { echo "ОШИБКА ЗАПУСКА!"; exit 1; }
+          
+          echo "----------------------------------------"
+          echo "ДЕТАЛИ УСПЕШНОГО ОБНОВЛЕНИЯ:"
+          echo "----------------------------------------"
+          echo "Текущая версия бинарника:"
+          /usr/bin/caddy version
+          echo "----------------------------------------"
+          echo "Список установленных плагинов (Проверка L4):"
+          /usr/bin/caddy list-modules | grep -i "l4" || echo "Плагин L4 не найден!"
+          echo "----------------------------------------"
+          echo "Статус Systemd (Аптайм):"
+          systemctl status caddy | grep "Active:"
+          EOF
