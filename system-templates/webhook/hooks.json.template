@@ -1,0 +1,17 @@
+[
+  {
+    "id": "${HOOK_ID}",
+    "execute-command": "${EXEC_COMMAND}",
+    "command-working-directory": "${EXEC_WORKDIR}",
+    "trigger-rule": {
+      "match": {
+        "type": "payload-hmac-sha256",
+        "secret": "${WEBHOOK_SECRET}",
+        "parameter": {
+          "source": "header",
+          "name": "X-Gitea-Signature"
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,11 @@
+[Unit]
+Description=Webhook Server
+After=network.target
+
+[Service]
+ExecStart=%h/.local/bin/webhook -hooks /opt/appdata/config/webhook/hooks.json -verbose -port ${WEBHOOK_PORT}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
