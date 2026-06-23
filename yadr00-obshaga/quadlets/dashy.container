@@ -1,0 +1,23 @@
+[Unit]
+Description=Dashy Dashboard
+After=network-online.target
+
+[Container]
+#образ
+Image=docker.io/lissy93/dashy:latest
+
+# автообновления!
+AutoUpdate=registry
+
+# Проброс порта (10000 внешний, 8080 внутренний)
+PublishPort=10000:8080
+
+# Проброс папки с конфигом. Флаг :Z обязателен для решения проблем с правами SELinux/Podman
+Volume=/opt/appdata/config/dashy:/app/user-data:Z
+
+# Переменная среды из документации
+Environment=NODE_ENV=production
+
+[Install]
+#запускать контейнер при старте сессии пользователя
+WantedBy=default.target
