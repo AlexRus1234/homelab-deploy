@@ -1,0 +1,9 @@
+pageInfo:
+  title: HomeLab Dashboard
+appConfig:
+  theme: dracula
+sections:
+  - name: Main Services
+    items:
+      - title: GitHub
+        url: https://github.com

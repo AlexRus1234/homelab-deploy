@@ -16,9 +16,9 @@ homelab-deploy/
 │
 └── servers/                               # Корень машин
     └── yadr00/                            #
-        └── obshaga/                       # 
-            ├── sync-state.sh              # Скрипт синхронизации
-            ├── quadlets/                  # 
+        └── obshaga/                       # Конкретная ВМ/LXC
+            ├── sync-state.sh              # Скрипт синхронизации (теперь храним в Git!)
+            ├── quadlets/                  # Все 5 сервисов в виде Podman-служб
             │   ├── 01-athens.container
             │   ├── 02-dashy.container
             │   ├── 03-verdaccio.container
@@ -33,7 +33,7 @@ homelab-deploy/
                 ├── verdaccio/
                 │   └── config.yaml
                 ├── memos/
-                │   └── .keep              # 
+                │   └── .keep              # Пустой файл, чтобы Git создал папку (данные лежат в БД)
                 └── linkstack/
                     └── .keep
 ```
