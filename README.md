@@ -7,4 +7,4 @@ homelab-deploy/
         ├── dashy/
         │   └── conf.yml
         └── athens/
-            └── athens.env.example
+           └── athens.env.example
