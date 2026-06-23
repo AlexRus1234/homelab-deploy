@@ -1,3 +1,5 @@
+
+```
 homelab-deploy/
 └── yadr00-obshaga/
     ├── quadlets/
@@ -8,3 +10,4 @@ homelab-deploy/
         │   └── conf.yml
         └── athens/
            └── athens.env.example
+```
