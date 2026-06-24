@@ -3,6 +3,8 @@
     "id": "${HOOK_ID}",
     "execute-command": "${EXEC_COMMAND}",
     "command-working-directory": "${EXEC_WORKDIR}",
+    "capture-command-output": true,
+    "include-command-output-in-response": true,
     "trigger-rule": {
       "match": {
         "type": "payload-hmac-sha256",
