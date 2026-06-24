@@ -3,38 +3,40 @@
 homelab-deploy/
 ├── .forgejo/
 │   └── workflows/
-│       ├── yadr01-deploy-sftpgo.yml       
+│       ├── yadr00-obshaga-deploy-webhook.yml
+│       ├── yadr00-obshaga-webhook-deploy.yml
 │       ├── yadr01-deploy-caddy.yml
-│       └── yadr00-obshaga-deploy-webhook.yml
+│       └── yadr01-deploy-sftpgo.yml
 │
-├── system-templates/                      # Универсальные шаблоны
+├── system-templates/
 │   ├── caddy/
 │   │   └── Caddyfile.template
 │   └── webhook/
 │       ├── hooks.json.template
 │       └── webhook.service.template
 │
-└── servers/                               # Корень машин
-    └── yadr00/                            #
-        └── obshaga/                       # 
-            ├── sync-state.sh              # Скрипт синхронизации
-            ├── quadlets/                  # 
+└── servers/
+    └── yadr00/
+        └── obshaga/
+            ├── sync-state.sh
+            ├── quadlets/
             │   ├── 01-athens.container
             │   ├── 02-dashy.container
-            │   ├── 03-verdaccio.container
-            │   ├── 04-memos.container
             │   ├── 03-linkstack-data.volume
-            │   └── 03-linkstack.container
+            │   ├── 03-linkstack.container
+            │   ├── 04-memos.container
+            │   └── 06-verdaccio.container
             │
-            └── app-configs/               # Настройки программ
+            └── app-configs/
                 ├── athens/
                 │   └── athens.env.example
                 ├── dashy/
                 │   └── conf.yml
-                ├── verdaccio/
-                │   └── config.yaml
+                ├── linkstack/
+                │   ├── .keep
+                │   └── linkstack.env
                 ├── memos/
-                │   └── .keep              # 
-                └── linkstack/
-                    └── linkstack.env
+                │   └── .keep
+                └── verdaccio/
+                    └── config.yaml
 ```
