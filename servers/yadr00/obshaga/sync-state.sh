@@ -24,11 +24,11 @@ for file in $DELETED_FILES; do
     fi
 done
 
-# 2. Синхронизируем Quadlets
-rsync -a --delete servers/yadr00/obshaga/quadlets/ ~/.config/containers/systemd/
+# 2. Синхронизируем Quadlets (заменили -a на -rlptD)
+rsync -rlptD --delete servers/yadr00/obshaga/quadlets/ ~/.config/containers/systemd/
 
-# 3. Синхронизируем конфиги приложений (без перезаписи локальных .env)
-rsync -a servers/yadr00/obshaga/app-configs/ /opt/appdata/config/
+# 3. Синхронизируем конфиги приложений (заменили -a на -rlptD)
+rsync -rlptD servers/yadr00/obshaga/app-configs/ /opt/appdata/config/
 
 # 4. Перечитываем демоны
 systemctl --user daemon-reload
