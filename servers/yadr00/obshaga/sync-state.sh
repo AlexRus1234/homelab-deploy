@@ -36,13 +36,12 @@ systemctl --user daemon-reload
 # 5. Подтягиваем новые образы
 podman auto-update
 
-# 6. Перезапускаем только измененные или новые службы
-CHANGED_FILES=$(git diff --name-only --diff-filter=d $OLD_HASH $NEW_HASH -- servers/yadr00/obshaga/quadlets/)
-
-for file in $CHANGED_FILES; do
-    if [[ "$file" == *.container ]]; then
+# 6. Перезапускаем все активные .container службы
+echo "Перезапускаем активные службы..."
+for file in ~/.config/containers/systemd/*.container; do
+    if [ -f "$file" ]; then
         service_name=$(basename "$file" .container)
-        echo "Перезапускаем службу: $service_name"
+        echo "Перезапуск: $service_name"
         systemctl --user restart "$service_name"
     fi
 done
