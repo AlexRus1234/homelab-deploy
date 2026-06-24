@@ -1,0 +1,74 @@
+name: Deploy Webhook to YADR00-OBSHAGA
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: 'Какую версию бинарника установить? (например: 2.8.3)'
+        required: true
+        default: '2.8.3'
+        type: string
+
+env:
+  SERVER_IP: "172.20.5.17"
+  SSH_USER: "app-runner"
+  BIN_URL: "https://git.yadr00.internal/api/packages/Build/generic/webhook/${{ github.event.inputs.target_tag }}/webhook"
+
+jobs:
+  deploy:
+    runs-on: docker
+    container:
+      image: alpine:latest
+
+    steps:
+      - name: Install dependencies
+        run: apk add --no-cache openssh-client curl bash gettext
+
+      - name: Checkout homelab-deploy repo
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.YADR00_OBSHAGA_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Prepare Configs from Templates
+        env:
+          HOOK_ID: "sync-obshaga"
+          EXEC_COMMAND: "/opt/appdata/git-repo/servers/yadr00/obshaga/sync-state.sh"
+          EXEC_WORKDIR: "/opt/appdata"
+          WEBHOOK_SECRET: ${{ secrets.YADR00_OBSHAGA_WEBHOOK_SECRET }}
+          WEBHOOK_PORT: "9000"
+        run: |
+          echo "Генерируем боевые конфиги из шаблонов..."
+          mkdir -p ./deploy-artifacts
+          envsubst < ./system-templates/webhook/hooks.json.template > ./deploy-artifacts/hooks.json
+          envsubst < ./system-templates/webhook/webhook.service.template > ./deploy-artifacts/webhook.service
+
+      - name: Stop Service & Create Directories on VM
+        run: |
+          ssh ${{ env.SSH_USER }}@${{ env.SERVER_IP }} "
+            systemctl --user stop webhook 2>/dev/null || true
+            mkdir -p ~/.local/bin
+            mkdir -p ~/.config/systemd/user
+            mkdir -p /opt/appdata/config/webhook
+          "
+
+      - name: Transfer Configs via SCP
+        run: |
+          scp ./deploy-artifacts/webhook.service ${{ env.SSH_USER }}@${{ env.SERVER_IP }}:~/.config/systemd/user/
+          scp ./deploy-artifacts/hooks.json ${{ env.SSH_USER }}@${{ env.SERVER_IP }}:/opt/appdata/config/webhook/
+
+      - name: Download Binary & Start Service on VM
+        run: |
+          ssh ${{ env.SSH_USER }}@${{ env.SERVER_IP }} "
+            echo 'Скачиваем бинарник из реестра (без проверки сертификата, т.к. мы в локалке)...'
+            curl -k -fSL -o ~/.local/bin/webhook '${{ env.BIN_URL }}'
+            chmod +x ~/.local/bin/webhook
+
+            echo 'Перечитываем systemd и запускаем службу...'
+            systemctl --user daemon-reload
+            systemctl --user enable --now webhook
+          "
