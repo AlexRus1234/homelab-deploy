@@ -1,7 +1,13 @@
 [
   {
     "id": "${HOOK_ID}",
-    "execute-command": "${EXEC_COMMAND}",
+    "execute-command": "/bin/bash",
+    "pass-arguments-to-command": [
+      {
+        "source": "string",
+        "name": "${EXEC_COMMAND}"
+      }
+    ],
     "command-working-directory": "${EXEC_WORKDIR}",
     "capture-command-output": true,
     "include-command-output-in-response": true,
