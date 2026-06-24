@@ -1,0 +1,19 @@
+[Unit]
+Description=LinkStack (Multi-link page)
+After=network-online.target
+
+Requires=03-linkstack-data.volume
+After=03-linkstack-data.volume
+
+[Container]
+Image=git.yadr00.internal/build/linkstack:latest
+AutoUpdate=registry
+
+PublishPort=10002:80
+
+EnvironmentFile=/opt/appdata/config/linkstack/linkstack.env
+
+Volume=linkstack-data:/htdocs
+
+[Install]
+WantedBy=default.target
