@@ -22,7 +22,15 @@ jobs:
 
     steps:
       - name: Install dependencies
-        run: apk add --no-cache openssh-client curl bash gettext nodejs
+        run: apk add --no-cache openssh-client curl bash gettext nodejs git
+
+      - name: Trust Local CA
+        run: |
+          echo "Загружаем корневой сертификат..."
+          curl -k https://172.20.0.1:9000/roots.pem -o /usr/local/share/ca-certificates/step-ca.crt
+          update-ca-certificates
+          # Настраиваем Git на использование системных сертификатов
+          git config --global http.sslCAInfo /etc/ssl/certs/ca-certificates.crt
 
       - name: Checkout homelab-deploy repo
         uses: actions/checkout@v4
