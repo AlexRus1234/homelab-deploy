@@ -23,7 +23,8 @@ homelab-deploy/
             │   ├── 02-dashy.container
             │   ├── 03-verdaccio.container
             │   ├── 04-memos.container
-            │   └── 05-linkstack.container
+            │   ├── 03-linkstack-data.volume
+            │   └── 03-linkstack.container
             │
             └── app-configs/               # Настройки программ
                 ├── athens/
@@ -35,5 +36,5 @@ homelab-deploy/
                 ├── memos/
                 │   └── .keep              # 
                 └── linkstack/
-                    └── .keep
+                    └── linkstack.env
 ```
