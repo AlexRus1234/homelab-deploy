@@ -2,9 +2,6 @@
 Description=LinkStack (Multi-link page)
 After=network-online.target
 
-Requires=03-linkstack-data.volume
-After=03-linkstack-data.volume
-
 [Container]
 Image=git.yadr00.internal/build/linkstack:latest
 AutoUpdate=registry
@@ -21,7 +18,10 @@ Environment=LOG_LEVEL=info
 Environment=SERVER_ADMIN=admin@localhost
 Environment=HTTP_SERVER_NAME=localhost
 Environment=HTTPS_SERVER_NAME=localhost
-Volume=linkstack-data:/htdocs
+# Формат: /путь/на/диске:/путь/в/контейнере:ФЛАГИ
+# Флаг U - заставит Podman правильно поменять владельца папки на хосте (под UID Apache)
+# Флаг copy - заставит Podman скопировать исходники из образа на наш диск!
+Volume=/opt/appdata/db/linkstack:/htdocs:U,copy
 
 [Install]
 WantedBy=default.target
