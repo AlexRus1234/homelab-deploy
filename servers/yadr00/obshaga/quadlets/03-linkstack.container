@@ -16,7 +16,6 @@ PublishPort=10002:80
 
 Environment=TZ=Europe/Moscow 
 Environment=PHP_MEMORY_LIMIT=256M
-
 Environment=UPLOAD_MAX_FILESIZE=8M
 
 Volume=linkstack-data:/htdocs
