@@ -9,7 +9,6 @@ After=03-linkstack-data.volume
 Image=git.yadr00.internal/build/linkstack:latest
 AutoUpdate=registry
 
-
 # РАЗРЕШАЕМ ПОРТ 80 ТОЛЬКО ВНУТРИ ЭТОГО КОНТЕЙНЕР
 Sysctl=net.ipv4.ip_unprivileged_port_start=80
 
