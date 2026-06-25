@@ -6,22 +6,15 @@ After=network-online.target
 Image=git.yadr00.internal/build/linkstack:latest
 AutoUpdate=registry
 
-# РАЗРЕШАЕМ ПОРТ 80 ТОЛЬКО ВНУТРИ ЭТОГО КОНТЕЙНЕР
 Sysctl=net.ipv4.ip_unprivileged_port_start=80
-
 PublishPort=10002:80
 
 
-Environment=TZ=Europe/Moscow
-Environment=PHP_MEMORY_LIMIT=256M
-Environment=LOG_LEVEL=info
-Environment=SERVER_ADMIN=admin@localhost
-Environment=HTTP_SERVER_NAME=localhost
-Environment=HTTPS_SERVER_NAME=localhost
-# Формат: /путь/на/диске:/путь/в/контейнере:ФЛАГИ
-# Флаг U - заставит Podman правильно поменять владельца папки на хосте (под UID Apache)
-# Флаг copy - заставит Podman скопировать исходники из образа на наш диск!
-Volume=/opt/appdata/db/linkstack:/htdocs:U,copy
+# Мапим пользователя хоста в пользователя apache внутри контейнера
+UserNS=keep-id:uid=100,gid=101
+
+# Проброс папки (теперь без флагов U и copy, так как UserNS решает проблему прав)
+Volume=/opt/appdata/db/linkstack:/htdocs
 
 [Install]
 WantedBy=default.target
