@@ -14,10 +14,12 @@ Sysctl=net.ipv4.ip_unprivileged_port_start=80
 
 PublishPort=10002:80
 
-Environment=TZ=Europe/Moscow 
+Environment=TZ=Europe/Moscow
 Environment=PHP_MEMORY_LIMIT=256M
-Environment=UPLOAD_MAX_FILESIZE=8M
-
+Environment=LOG_LEVEL=info
+Environment=SERVER_ADMIN=admin@localhost
+Environment=HTTP_SERVER_NAME=localhost
+Environment=HTTPS_SERVER_NAME=localhost
 Volume=linkstack-data:/htdocs
 
 [Install]
