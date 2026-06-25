@@ -9,7 +9,7 @@ After=03-linkstack-data.volume
 Image=git.yadr00.internal/build/linkstack:latest
 AutoUpdate=registry
 
-PublishPort=10002:80
+PublishPort=10002:8080
 
 EnvironmentFile=/opt/appdata/config/linkstack/linkstack.env
 
