@@ -22,6 +22,5 @@ Environment=HTTP_SERVER_NAME=localhost
 Environment=HTTPS_SERVER_NAME=localhost
 Volume=linkstack-data:/htdocs
 
-
 [Install]
 WantedBy=default.target
