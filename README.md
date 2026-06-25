@@ -1,4 +1,3 @@
-
 ```
 homelab-deploy/
 ├── .forgejo/
@@ -39,4 +38,5 @@ homelab-deploy/
                 │   └── .keep
                 └── verdaccio/
                     └── config.yaml
+                    
 ```
