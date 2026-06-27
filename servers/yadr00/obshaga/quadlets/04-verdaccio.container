@@ -11,15 +11,17 @@ PublishPort=4873:4873
 # Мапим пользователя хоста в пользователя verdaccio (uid 10001) внутри контейнера
 UserNS=keep-id:uid=10001,gid=0
 
-# Единственный persist на хосте — файл учётных записей (внешний диск /opt/appdata)
-Volume=/opt/appdata/verdaccio/htpasswd:/verdaccio/storage/htpasswd
+# Единственный persist на хосте — файл учётных записей (внешний диск /opt/appdata/db) 
+#изменяемые данные на диск "db"
+Volume=/opt/appdata/db/verdaccio/htpasswd:/verdaccio/storage/htpasswd
 
 # Конфиг монтируется снаружи (gitops → /opt/appdata/config). Образ конфиг-нейтрален.
 Volume=/opt/appdata/config/verdaccio/config.yaml:/verdaccio/conf/config.yaml
 
 # Переменные S3/MinIO: AWS_S3_BUCKET, AWS_S3_KEY_PREFIX, AWS_S3_ENDPOINT,
 # AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-EnvironmentFile=/opt/appdata/verdaccio/verdaccio.env
+EnvironmentFile=/opt/appdata/config/verdaccio/verdaccio.env
+
 
 # Максимально эфемерный rootfs: пакеты и state живут в S3, tmp — в tmpfs
 ReadOnly=true
