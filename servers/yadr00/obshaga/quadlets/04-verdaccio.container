@@ -6,7 +6,7 @@ After=network-online.target
 Image=git.yadr00.internal/build/verdaccio:latest
 AutoUpdate=registry
 
-PublishPort=4873:4873
+PublishPort=10003:4873
 
 # Мапим пользователя хоста в пользователя verdaccio (uid 10001) внутри контейнера
 UserNS=keep-id:uid=10001,gid=0
