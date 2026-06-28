@@ -1,0 +1,21 @@
+[Unit]
+Description=NORA Artifact Registry
+After=network-online.target
+
+[Container]
+Image=git.yadr00.internal/build/nora:latest
+AutoUpdate=registry
+
+PublishPort=10001:4000
+
+# Мапим пользователя ВМ в пользователя nora(1000:1000) внутри контейнера
+UserNS=keep-id:uid=1000,gid=1000
+
+# Persistent volume для token store / htpasswd (auth). Артефакты — в S3.
+Volume=/opt/appdata/db/nora:/data
+
+# Секреты и S3-доступ — rootless env-файл (вне git)
+EnvironmentFile=/opt/appdata/config/nora/nora.env
+
+[Install]
+WantedBy=default.target
