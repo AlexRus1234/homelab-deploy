@@ -23,7 +23,7 @@ Volume=/opt/appdata/db/memos:/var/opt/memos
 EnvironmentFile=/opt/appdata/config/memos/memos.env
 
 # Memos отдаёт /healthz для проверок живости
-HealthCheckCmd=wget --no-verbose --tries=1 --spider http://localhost:5230/healthz || exit 1
+HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:5230/healthz || exit 1
 
 [Install]
 WantedBy=default.target
