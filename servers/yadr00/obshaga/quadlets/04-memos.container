@@ -1,0 +1,29 @@
+[Unit]
+Description=Memos (self-hosted note-taking)
+After=network-online.target
+
+[Container]
+Image=git.yadr00.internal/build/memos:latest
+AutoUpdate=registry
+
+PublishPort=10001:5230
+
+# Мапим хост-пользователя rootless-демона в nonroot (UID/GID 10001) внутри контейнера
+# — решает проблему прав на SQLite-файлы в /var/opt/memos
+UserNS=keep-id:uid=10001,gid=10001
+
+# Бронебойный режим: корневая ФС только для чтения, /tmp в tmpfs на всякий случай
+ReadOnly=true
+Tmpfs=/tmp:rw,size=128M,mode=1777
+
+# Только SQLite (memos_prod.db, -wal, -shm). Кэш миниатюр тоже здесь — это состояние, не ephemeral.
+Volume=/opt/appdata/db/memos:/var/opt/memos
+
+# Переменные окружения (режим, драйвер, DSN, порт, URL инстанса, уровень логов)
+EnvironmentFile=/opt/appdata/config/memos/memos.env
+
+# Memos отдаёт /healthz для проверок живости
+HealthCheckCmd=wget --no-verbose --tries=1 --spider http://localhost:5230/healthz || exit 1
+
+[Install]
+WantedBy=default.target
