@@ -6,7 +6,7 @@ After=network-online.target
 Image=git.yadr00.internal/build/memos:latest
 AutoUpdate=registry
 
-PublishPort=10001:5230
+PublishPort=10004:5230
 
 # Мапим хост-пользователя rootless-демона в nonroot (UID/GID 10001) внутри контейнера
 # — решает проблему прав на SQLite-файлы в /var/opt/memos
