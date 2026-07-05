@@ -1,0 +1,54 @@
+{
+    admin :2019
+    debug
+
+    # Блок настройки модуля layer4 для TCP-трафика
+    layer4 {
+        :65022 {
+            route {
+                proxy 172.20.6.8:2022
+            }
+        }
+    }
+}
+
+(my_tls) {
+    tls {
+        issuer acme {
+            dir https://172.20.0.1:9000/acme/acme/directory
+            trusted_roots /etc/caddy/root_ca.crt
+        }
+    }
+}
+
+proxmox.yadr01.internal {
+    reverse_proxy https://172.20.6.1:8006 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+    import my_tls
+}
+
+sftpgo.yadr01.internal {
+    import my_tls
+    reverse_proxy 172.20.6.8:8080
+}
+
+pbs.yadr01.internal {
+    reverse_proxy https://172.20.6.3:8007 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+    import my_tls
+}
+
+# Подгрузка остальных файлов
+import /etc/caddy/caddy_conf/*.caddy
+
+# Глобальный слушатель 80 порта для ACME
+:80 {
+    # Просто ничего не делаем, Caddy сам перехватит /.well-known/acme-challenge
+    respond "ACME Listener" 200
+}
