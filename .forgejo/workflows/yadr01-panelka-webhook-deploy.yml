@@ -1,4 +1,4 @@
-name: Deploy Webhook to YADR00-OBSHAGA
+name: Deploy Webhook to YADR01-PANELKA
 
 on:
   workflow_dispatch:

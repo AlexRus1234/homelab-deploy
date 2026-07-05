@@ -7,6 +7,8 @@ homelab-deploy/
 │       ├── yadr01-deploy-sftpgo.yml
 │       └── yadr01-panelka-webhook-deploy.yml
 │
+├── .gitignore
+│
 ├── docs/
 │   └── Инфраструктура/
 │       ├── 01_архитектура_и_сеть.md
@@ -16,6 +18,7 @@ homelab-deploy/
 │           └── 02_настройка_ВМ.md
 │
 ├── report/
+│   └── README.md
 │
 ├── system-templates/
 │   ├── caddy/
@@ -44,6 +47,9 @@ homelab-deploy/
     └── yadr01/
         └── panelka/
             ├── sync-state.sh
-            └── quadlets/
-                └── 01-nora.container
+            ├── quadlets/
+            │   └── 01-nora.container
+            └── app-configs/
+                └── nora/
+                    └── nora.env.example
 ```

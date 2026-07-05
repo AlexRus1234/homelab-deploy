@@ -28,7 +28,11 @@ done
 rsync -rlptD --delete servers/yadr00/obshaga/quadlets/ ~/.config/containers/systemd/
 
 # 3. Синхронизируем конфиги приложений (заменили -a на -rlptD)
-rsync -rlptD servers/yadr00/obshaga/app-configs/ /opt/appdata/config/
+if [ -d servers/yadr00/obshaga/app-configs ]; then
+    rsync -rlptD servers/yadr00/obshaga/app-configs/ /opt/appdata/config/
+else
+    echo "Каталог app-configs отсутствует — пропуск шага rsync конфигов."
+fi
 
 # 4. Перечитываем демоны
 systemctl --user daemon-reload
@@ -36,14 +40,27 @@ systemctl --user daemon-reload
 # 5. Подтягиваем новые образы
 podman auto-update
 
-# 6. Перезапускаем все активные .container службы
-echo "Перезапускаем активные службы..."
-for file in ~/.config/containers/systemd/*.container; do
-    if [ -f "$file" ]; then
-        service_name=$(basename "$file" .container)
-        echo "Перезапуск: $service_name"
-        systemctl --user restart "$service_name"
+# 6. Перезапуск служб: точечно по изменённым Quadlets, либо всех при FORCE_FULL_RESTART=1
+if [ "${FORCE_FULL_RESTART:-0}" = "1" ]; then
+    echo "FORCE_FULL_RESTART=1 — перезапускаем ВСЕ .container службы..."
+    for file in ~/.config/containers/systemd/*.container; do
+        if [ -f "$file" ]; then
+            service_name=$(basename "$file" .container)
+            echo "Перезапуск: $service_name"
+            systemctl --user restart "$service_name" 2>/dev/null || true
+        fi
+    done
+else
+    CHANGED_FILES=$(git diff --name-only --diff-filter=AM $OLD_HASH $NEW_HASH -- servers/yadr00/obshaga/quadlets/ | grep '\.container$' || true)
+    if [ -z "$CHANGED_FILES" ]; then
+        echo "Изменённых Quadlet-служб нет — перезапуск не требуется."
+    else
+        for file in $CHANGED_FILES; do
+            service_name=$(basename "$file" .container)
+            echo "Точечный перезапуск: $service_name"
+            systemctl --user restart "$service_name" 2>/dev/null || true
+        done
     fi
-done
+fi
 
 echo "=== Синхронизация завершена ==="
