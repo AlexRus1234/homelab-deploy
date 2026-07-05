@@ -23,7 +23,8 @@ homelab-deploy/
 │
 ├── system-templates/
 │   ├── caddy/
-│   │   └── Caddyfile.template
+│   │   ├── Caddyfile.yadr00.template
+│   │   └── Caddyfile.yadr01.template
 │   └── webhook/
 │       ├── hooks.json.template
 │       └── webhook.service.template

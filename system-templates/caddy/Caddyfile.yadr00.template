@@ -1,0 +1,59 @@
+{
+    admin :2019
+    debug
+}
+
+# --- ШАБЛОН (СНИППЕТ) ДЛЯ STEP-CA ---
+(my_tls) {
+    tls {
+        issuer acme {
+            dir https://172.20.0.1:9000/acme/acme/directory
+            trusted_roots /etc/caddy/root_ca.crt
+        }
+    }
+}
+
+# --- Proxmox VE (yadr00) ---
+proxmox.yadr00.internal {
+    reverse_proxy https://172.20.5.1:8006 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+    import my_tls
+}
+
+# --- Vaultwarden ---
+alpine-vaultwarden.yadr00.internal {
+    reverse_proxy https://172.20.5.6:8000 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+    import my_tls
+}
+
+# --- Сервис аутентификации ---
+authentic.yadr00.internal {
+    reverse_proxy 172.20.5.4:9000 {
+        header_up X-Forwarded-Host authentic.yadr00.internal
+    }
+    import my_tls
+}
+
+# --- Forgejo (Git) ---
+git.yadr00.internal {
+    reverse_proxy 172.20.5.2:3000 {
+        header_up X-Forwarded-Host git.yadr00.internal
+    }
+    import my_tls
+}
+
+# Подгрузка остальных файлов
+import /etc/caddy/caddy_conf/*.caddy
+
+# Глобальный слушатель 80 порта для ACME
+:80 {
+    # Просто ничего не делаем, Caddy сам перехватит /.well-known/acme-challenge
+    respond "ACME Listener" 200
+}
