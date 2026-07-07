@@ -18,6 +18,12 @@ Volume=/opt/appdata/config/dashy:/app/user-data:Z
 # Переменная среды из документации
 Environment=NODE_ENV=production
 
+
+
+Label=Dashboard
+Label=10000
+Label=proto-http
+
 [Install]
 #запускать контейнер при старте сессии пользователя
 WantedBy=default.target
