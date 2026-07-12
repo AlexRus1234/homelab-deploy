@@ -4,7 +4,7 @@ After=network-online.target
 
 [Container]
 #образ
-Image=docker.io/lissy93/dashy:latest
+Image=git.yadr00.internal/build/dashy:latest
 
 # автообновления!
 AutoUpdate=registry
