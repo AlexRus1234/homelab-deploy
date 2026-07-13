@@ -17,5 +17,9 @@ Volume=/opt/appdata/db/nora:/data
 # Секреты и S3-доступ — rootless env-файл (вне git)
 EnvironmentFile=/opt/appdata/config/nora/nora.env
 
+Label=NORA
+Label=10001
+Label=proto-http
+
 [Install]
 WantedBy=default.target

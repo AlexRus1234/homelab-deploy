@@ -10,7 +10,7 @@ Image=git.yadr00.internal/build/dashy:latest
 AutoUpdate=registry
 
 # Проброс порта (10000 внешний, 8080 внутренний)
-PublishPort=10000:8080
+PublishPort=10002:8080
 
 # Проброс папки с конфигом. Флаг :Z обязателен для решения проблем с правами SELinux/Podman
 Volume=/opt/appdata/config/dashy:/app/user-data:Z
@@ -21,7 +21,7 @@ Environment=NODE_ENV=production
 
 
 Label=Dashboard
-Label=10000
+Label=10002
 Label=proto-http
 
 [Install]

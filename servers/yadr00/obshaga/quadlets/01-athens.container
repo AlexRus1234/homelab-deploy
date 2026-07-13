@@ -14,5 +14,9 @@ PublishPort=10001:3000
 # Подключаем файл с переменными среды (пароли и настройки S3)
 EnvironmentFile=/opt/appdata/config/athens/athens.env
 
+Label=Athens
+Label=10001
+Label=proto-http
+
 [Install]
 WantedBy=default.target

@@ -25,5 +25,9 @@ EnvironmentFile=/opt/appdata/config/memos/memos.env
 # Memos отдаёт /healthz для проверок живости
 HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:5230/healthz || exit 1
 
+Label=Memos
+Label=10004
+Label=proto-http
+
 [Install]
 WantedBy=default.target

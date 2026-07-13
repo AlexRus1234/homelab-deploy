@@ -7,7 +7,7 @@ Image=git.yadr00.internal/build/linkstack:latest
 AutoUpdate=registry
 
 Sysctl=net.ipv4.ip_unprivileged_port_start=80
-PublishPort=10002:80
+PublishPort=10003:80
 
 
 # Мапим пользователя хоста в пользователя apache внутри контейнера
@@ -15,6 +15,10 @@ UserNS=keep-id:uid=100,gid=101
 
 # Проброс папки (теперь без флагов U и copy, так как UserNS решает проблему прав)
 Volume=/opt/appdata/db/linkstack:/htdocs
+
+Label=LinkStack
+Label=10003
+Label=proto-http
 
 [Install]
 WantedBy=default.target
