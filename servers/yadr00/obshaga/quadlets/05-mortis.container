@@ -6,9 +6,9 @@ After=04-memos.service
 Image=git.yadr00.internal/build/mortis:latest
 AutoUpdate=registry
 
-PublishPort=10005:5231
+Pod=memos.pod
 
-Exec=-addr=0.0.0.0 -port=5231 -grpc-addr=http://172.20.5.17:10004
+Exec=-addr=0.0.0.0 -port=5231 -grpc-addr=localhost:5230
 
 Label=Mortis
 Label=10005

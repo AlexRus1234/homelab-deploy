@@ -6,13 +6,13 @@ After=network-online.target
 Image=git.yadr00.internal/build/memos:latest
 AutoUpdate=registry
 
-PublishPort=10004:5230
+Pod=memos.pod
 
 # Мапим хост-пользователя rootless-демона в nonroot (UID/GID 10001) внутри контейнера
 # — решает проблему прав на SQLite-файлы в /var/opt/memos
 UserNS=keep-id:uid=10001,gid=10001
 
-# Бронебойный режим: корневая ФС только для чтения, /tmp в tmpfs на всякий случай
+#  корневая ФС только для чтения, /tmp в tmpfs на всякий случай
 ReadOnly=true
 Tmpfs=/tmp:rw,size=128M,mode=1777
 
