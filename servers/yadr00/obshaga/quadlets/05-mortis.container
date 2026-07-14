@@ -1,0 +1,18 @@
+[Unit]
+Description=Mortis (Memos API Gateway 0.21.0 -> latest)
+After=04-memos.service
+
+[Container]
+Image=git.yadr00.internal/build/mortis:latest
+AutoUpdate=registry
+
+PublishPort=10005:5231
+
+Exec=-addr=0.0.0.0 -port=5231 -grpc-addr=http://172.20.5.17:10004
+
+Label=Mortis
+Label=10005
+Label=proto-http
+
+[Install]
+WantedBy=default.target
