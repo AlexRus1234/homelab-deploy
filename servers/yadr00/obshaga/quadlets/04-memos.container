@@ -6,8 +6,6 @@ After=network-online.target
 Image=git.yadr00.internal/build/memos:latest
 AutoUpdate=registry
 
-Network=memos-net.network
-
 PublishPort=10004:5230
 
 # Мапим хост-пользователя rootless-демона в nonroot (UID/GID 10001) внутри контейнера
