@@ -8,7 +8,7 @@ AutoUpdate=registry
 
 Pod=memos.pod
 
-Exec=-addr=0.0.0.0 -port=5231 -grpc-addr=localhost:5230
+Exec=-addr=0.0.0.0 -port=5231 -grpc-addr=127.0.0.1:5230
 
 Label=Mortis
 Label=10005
