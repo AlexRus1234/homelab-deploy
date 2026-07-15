@@ -1,0 +1,54 @@
+name: Deploy Intermasq Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Какую версию развернуть? (например: v3.1.1)'
+        required: true
+        default: 'v3.1.1'
+        type: string
+
+jobs:
+  deploy:
+    runs-on: docker
+    container:
+      image: alpine:latest
+
+    steps:
+      - name: Setup SSH
+        run: |
+          apk add --no-cache openssh-client curl
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+
+      - name: Update Intermasq on SHLZ00
+        env:
+          TARGET_VERSION: ${{ github.event.inputs.target_version }}
+          HOST_IP: "172.20.0.1"
+        run: |
+          ssh root@$HOST_IP << EOF
+          set -e
+
+          echo "1. Останавливаем службу..."
+          systemctl stop intermasq
+
+          echo "2. Делаем бэкап старой версии..."
+          mv /usr/local/bin/intermasq /usr/local/bin/intermasq.bak 2>/dev/null || echo "   (предыдущего бинарника не было — пропуск)"
+
+          echo "3. Скачиваем новый бинарник..."
+          curl -k -fSR -o /usr/local/bin/intermasq "https://git.yadr00.internal/api/packages/AlexRus1234/generic/intermasq/${TARGET_VERSION}/intermasq"
+          chmod +x /usr/local/bin/intermasq
+
+          echo "4. Запускаем службу..."
+          systemctl start intermasq
+
+          echo "5. Проверяем статус..."
+          systemctl is-active --quiet intermasq && echo "Intermasq УСПЕШНО ЗАПУЩЕН!" || { echo "ОШИБКА ЗАПУСКА! Откат: mv /usr/local/bin/intermasq.bak /usr/local/bin/intermasq && systemctl start intermasq"; exit 1; }
+
+          echo "----------------------------------------"
+          echo "Статус Systemd:"
+          systemctl status intermasq | grep "Active:"
+          EOF

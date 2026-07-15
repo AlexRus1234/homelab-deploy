@@ -19,6 +19,7 @@ homelab-deploy/
 ├── .forgejo/
 │   └── workflows/
 │       ├── yadr00-obshaga-webhook-deploy.yml
+│       ├── yadr00-deploy-intermasq.yml
 │       ├── yadr01-deploy-caddy.yml
 │       ├── yadr01-deploy-sftpgo.yml
 │       └── yadr01-panelka-webhook-deploy.yml
