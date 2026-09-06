@@ -80,4 +80,10 @@ CREATE DATABASE khrazhevnik OWNER khrazhevnik;
 ### Создание бакетов и ключей (для сервисов)
 - Бакет `matrix-media` + API-ключ (для Synapse через rclone)
 - Бакет `forgejo-data` + Access/Secret ключи (для Forgejo)
-- Бакет `khrazhevnik` + Access/Secret ключи (для Хражевника — кеш linux-репозиториев; доступ и сюда, и в PostgreSQL — по P2P-линку `172.21.6.0/24` с ВМ panelka)
+
+## RustFS 🦀 (S3 на P2P-линке)
+
+> S3-хранилище для сервисов ВМ `panelka` — доступ только по прямому линку `172.21.6.0/24` (endpoint `http://172.21.6.249:9000`), мимо основного коммутатора.
+
+- Бакет `nora-storage` + Access/Secret ключи (для NORA Artifact Registry)
+- Бакет `khrazhevnik` + Access/Secret ключи (для Хражевника — кеш linux-репозиториев; PostgreSQL — там же, `172.21.6.249:5432`)

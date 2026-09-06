@@ -106,7 +106,8 @@ SKLD00 — bare-metal узел, на котором поднят **слой ба
 | **PostgreSQL** | `listen_addresses` — macvlan-IP `172.20.50.10` + адреса P2P-линка (`172.21.6.249` и др.); `pg_hba.conf`: `scram-sha-256` для `172.20.0.0/16` и `172.21.6.0/24`. БД: `forgejo`, `synapse`, `authentik`, `khrazhevnik`. |
 | **MongoDB** | `bindIp: 172.20.50.11,172.21.6.255`. Пользователи привязаны к БД (`authSource`) — при подключении извне обязательно `?authSource=имя_бд`. |
 | **Valkey** | Свободный форк Redis (Arch Linux). Глобальный пароль `requirepass`, без классических логинов. |
-| **MinIO** | S3-хранилище по HTTP API. UI: `http://172.20.50.13:9001`. Бакеты: `matrix-media`, `forgejo-data`, `khrazhevnik` и др. |
+| **MinIO** | S3-хранилище по HTTP API (macvlan). UI: `http://172.20.50.13:9001`. Бакеты: `matrix-media`, `forgejo-data` и др. |
+| **RustFS** | S3-хранилище на P2P-линке `172.21.6.249:9000` (доступ только с YADR01 по прямому линку). Бакеты сервисов ВМ panelka: `nora-storage` (NORA), `khrazhevnik` (кеш linux-репозиториев). |
 
 ### В. Мониторинг и утилиты
 | Сервис | Порт / Команда |
