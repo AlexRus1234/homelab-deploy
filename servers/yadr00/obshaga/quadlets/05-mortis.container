@@ -1,0 +1,35 @@
+[Unit]
+Description=Mortis (Memos 0.21.0 API bridge для MoeMemos)
+After=network-online.target
+
+[Container]
+Image=git.yadr00.internal/build/mortis:latest
+AutoUpdate=registry
+
+# Общая rootless-сеть: DNS-имя memos резолвится через aardvark-dns
+Network=podman
+ContainerName=mortis
+
+PublishPort=10005:5231
+
+# Мапим хост-пользователя rootless-демона в nonroot (UID/GID 10001) внутри контейнера
+UserNS=keep-id:uid=10001,gid=10001
+
+# Бронебойный режим: корневая ФС только для чтения, /tmp в tmpfs
+ReadOnly=true
+Tmpfs=/tmp:rw,size=64M,mode=1777
+
+# Mortis stateless — запись в память не нужна
+
+# Адрес бэкенда Memos (имя контейнера в общей сети podman)
+Exec=-grpc-addr=memos:5230
+
+# Healthz проксируется mortis'ом в memos
+HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:5231/healthz || exit 1
+
+Label=Mortis
+Label=10005
+Label=proto-http
+
+[Install]
+WantedBy=default.target

@@ -102,7 +102,8 @@ homelab-deploy/
     │       ├── quadlets/
     │       │   ├── 02-dashy.container
     │       │   ├── 03-linkstack.container
-    │       │   └── 04-memos.container
+    │       │   ├── 04-memos.container
+    │       │   └── 05-mortis.container
     │       └── app-configs/
     │           ├── dashy/
     │           │   └── conf.yml
