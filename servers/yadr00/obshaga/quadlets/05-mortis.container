@@ -6,7 +6,7 @@ After=network-online.target
 Image=git.yadr00.internal/build/mortis:latest
 AutoUpdate=registry
 
-# Общая rootless-сеть: DNS-имя memos резолвится через aardvark-dns
+# Общая rootless-сеть (apps.network): DNS-имя memos резолвится через aardvark-dns
 Network=apps.network
 ContainerName=mortis
 

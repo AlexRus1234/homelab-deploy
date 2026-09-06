@@ -46,6 +46,15 @@ fi
 # 4. Перечитываем демоны
 systemctl --user daemon-reload
 
+# 4.5 Стартуем все Quadlet-сети: без этого новая .network служба никто не поднимет
+#     (idempotентно — старт существующей сети ничего не меняет)
+for network_file in ~/.config/containers/systemd/*.network; do
+    if [ -f "$network_file" ]; then
+        network_service="$(basename "$network_file" .network)-network.service"
+        systemctl --user start "$network_service" 2>/dev/null || true
+    fi
+done
+
 # 5. Подтягиваем новые образы
 podman auto-update
 

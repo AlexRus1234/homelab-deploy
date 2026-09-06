@@ -6,7 +6,7 @@ After=network-online.target
 Image=git.yadr00.internal/build/memos:latest
 AutoUpdate=registry
 
-# Общая rootless-сеть (06-apps.network) — mortis ходит сюда по DNS-имени
+# Общая rootless-сеть (apps.network) — mortis ходит сюда по DNS-имени
 Network=apps.network
 ContainerName=memos
 

@@ -67,3 +67,7 @@ CHANGED_FILES=$(git diff --name-only --diff-filter=AM $OLD_HASH $NEW_HASH ... | 
 FORCE_FULL_RESTART=1 /opt/appdata/git-repo/.../sync-state.sh
 ```
 При `FORCE_FULL_RESTART=1` скрипт проходит по всем `~/.config/containers/systemd/*.container` и перезапускает каждую службу. По умолчанию (`FORCE_FULL_RESTART` не задан или `0`) применяется точечный режим.
+
+### 3.6. Запуск сетевых юнитов (`.network`)
+
+После `daemon-reload` скрипт выполняет `systemctl --user start` для **всех служб, сгенерированных из `*.network`** quadlet-файлов. Без этого шага новая сеть никто бы не поднял: systemd не стартует добавленный юнит сам по себе, а `Requires` от контейнеров срабатывает только при их собственном рестарте. Старт идемпотентен — для уже запущенной сети это no-op (`podman network create --ignore`).
