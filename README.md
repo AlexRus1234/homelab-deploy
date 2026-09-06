@@ -65,7 +65,7 @@ homelab-deploy/
 │   │   ├── SHLZ00_роутер.md
 │   │   └── SKLD00_NAS.md
 │   │
-│   └── Настройка/
+│   ├── Настройка/
 │       ├── 01_NAS_система_ZFS_и_Btrfs.md
 │       ├── 02_NAS_сетевые_службы_Samba.md
 │       ├── 03_NAS_базы_данных_и_S3.md
@@ -79,6 +79,10 @@ homelab-deploy/
 │       ├── 11_Authentik_SSO.md
 │       ├── 12_VPN_Headscale_VPS.md
 │       └── 13_Intermasq_менеджер_DNS.md
+│
+│   └── заметки/
+│       └── podman/
+│           └── 01-автообновление.md
 │
 ├── report/
 │   └── README.md

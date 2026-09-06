@@ -2,8 +2,17 @@
 echo "=== Начинаем синхронизацию GitOps ==="
 cd /opt/appdata/git-repo
 
+# Игнорируем бит исполнения файлов — ручной chmod на ВМ не должен делать дерево "грязным" и блокировать pull
+git config core.fileMode false
+
 OLD_HASH=$(git rev-parse HEAD)
-git pull origin main
+
+# git pull обязан пройти успешно, иначе состояние непредсказуемо — падаем громко (webhook вернёт 500)
+if ! git pull origin main; then
+    echo "ОШИБКА: git pull не удался. Синхронизация прервана." >&2
+    exit 1
+fi
+
 NEW_HASH=$(git rev-parse HEAD)
 
 if git diff --quiet $OLD_HASH $NEW_HASH -- servers/yadr01/panelka/; then
