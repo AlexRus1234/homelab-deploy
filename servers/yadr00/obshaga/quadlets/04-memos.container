@@ -6,8 +6,8 @@ After=network-online.target
 Image=git.yadr00.internal/build/memos:latest
 AutoUpdate=registry
 
-# Общая rootless-сеть — чтобы mortis ходил сюда по DNS-имени (aardvark-dns)
-Network=podman
+# Общая rootless-сеть (06-apps.network) — mortis ходит сюда по DNS-имени
+Network=apps.network
 ContainerName=memos
 
 PublishPort=10004:5230

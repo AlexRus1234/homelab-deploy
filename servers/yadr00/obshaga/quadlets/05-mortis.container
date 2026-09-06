@@ -7,7 +7,7 @@ Image=git.yadr00.internal/build/mortis:latest
 AutoUpdate=registry
 
 # Общая rootless-сеть: DNS-имя memos резолвится через aardvark-dns
-Network=podman
+Network=apps.network
 ContainerName=mortis
 
 PublishPort=10005:5231
