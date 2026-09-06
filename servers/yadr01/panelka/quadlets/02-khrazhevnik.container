@@ -6,9 +6,9 @@ After=network-online.target
 Image=git.yadr00.internal/build/khrazhevnik:latest
 AutoUpdate=registry
 
-# Публичный порт (пакеты, /healthz) и админка (UI/API/metrics — только loopback ВМ)
+# Публичный порт (пакеты, /healthz) и админка (UI/API/metrics — в LAN, защита: JWT + rate-limit)
 PublishPort=10002:29202
-PublishPort=127.0.0.1:10003:30202
+PublishPort=10003:30202
 
 # Мапим пользователя ВМ в nobody(65534:65534) внутри контейнера (образ из scratch, USER 65534):
 # спул-каталог на хосте остаётся владельцем app-runner
