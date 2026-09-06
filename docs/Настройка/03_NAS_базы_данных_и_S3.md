@@ -17,7 +17,7 @@
 | Valkey (Redis) | `172.20.50.12` | 6379 |
 | MinIO (S3) | `172.20.50.13` | 9000 / 9001 |
 
-> ⚠️ Все БД слушают **только** свой IP + IP прямого линка до Proxmox (`172.21.6.255`). Никогда `0.0.0.0` или localhost.
+> ⚠️ Все БД слушают **только** свой macvlan-IP и адреса на P2P-линке до YADR01 (`172.21.6.0/24`). Никогда `0.0.0.0` или localhost.
 
 ---
 
@@ -37,13 +37,16 @@ CREATE DATABASE synapse OWNER synapse ENCODING 'UTF8' LC_COLLATE = 'C' LC_CTYPE 
 
 CREATE USER authentik WITH PASSWORD 'SuperSecretPassword';
 CREATE DATABASE authentik OWNER authentik;
+
+CREATE USER khrazhevnik WITH PASSWORD 'SuperSecretPassword';
+CREATE DATABASE khrazhevnik OWNER khrazhevnik;
 \q
 ```
 
 **Конфиг:**
 - Путь данных: `/var/lib/postgres/data`
-- `listen_addresses = '172.20.50.10, 172.21.6.255'`
-- `pg_hba.conf`: `scram-sha-256` для `172.20.0.0/16` и `172.21.6.254/31`
+- `listen_addresses = '172.20.50.10, 172.21.6.249'` (macvlan + P2P-линк до panelka)
+- `pg_hba.conf`: `scram-sha-256` для `172.20.0.0/16` и `172.21.6.0/24`
 
 ---
 
@@ -77,3 +80,4 @@ CREATE DATABASE authentik OWNER authentik;
 ### Создание бакетов и ключей (для сервисов)
 - Бакет `matrix-media` + API-ключ (для Synapse через rclone)
 - Бакет `forgejo-data` + Access/Secret ключи (для Forgejo)
+- Бакет `khrazhevnik` + Access/Secret ключи (для Хражевника — кеш linux-репозиториев; доступ и сюда, и в PostgreSQL — по P2P-линку `172.21.6.0/24` с ВМ panelka)

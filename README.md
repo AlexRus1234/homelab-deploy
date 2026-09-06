@@ -115,8 +115,11 @@ homelab-deploy/
         └── panelka/
             ├── sync-state.sh
             ├── quadlets/
-            │   └── 01-nora.container
+            │   ├── 01-nora.container
+            │   └── 02-khrazhevnik.container
             └── app-configs/
-                └── nora/
-                    └── nora.env.example
+                ├── nora/
+                │   └── nora.env.example
+                └── khrazhevnik/
+                    └── khrazhevnik.env.example
 ```
