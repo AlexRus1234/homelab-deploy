@@ -103,7 +103,8 @@ homelab-deploy/
     │       │   ├── 02-dashy.container
     │       │   ├── 03-linkstack.container
     │       │   ├── 04-memos.container
-    │       │   └── 05-mortis.container
+    │       │   ├── 05-mortis.container
+    │       │   └── apps.network
     │       └── app-configs/
     │           ├── dashy/
     │           │   └── conf.yml
