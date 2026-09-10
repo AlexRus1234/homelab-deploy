@@ -3,7 +3,7 @@ Description=Khrazhevnik — кеш-прокси и зеркало linux-репо
 After=network-online.target
 
 [Container]
-Image=git.yadr00.internal/build/khrazhevnik:latest
+Image=git.yadr00.internal/AlexRus1234/khrazhevnik:latest
 AutoUpdate=registry
 
 # Публичный порт (пакеты, /healthz) и админка (UI/API/metrics — в LAN, защита: JWT + rate-limit)
