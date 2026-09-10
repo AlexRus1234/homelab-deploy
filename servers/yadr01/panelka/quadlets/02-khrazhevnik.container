@@ -22,6 +22,14 @@ Volume=/opt/appdata/db/khrazhevnik/spool:/var/lib/khrazhevnik/spool
 # Секреты (JWT, ключи S3, DSN) — rootless env-файл (вне git, как у nora)
 EnvironmentFile=/opt/appdata/config/khrazhevnik/khrazhevnik.env
 
+# Весь апстрим (fetch кеш-прокси + mirror sync) — через socks5 шлюза, без авторизации.
+# Прокси задаётся env, не TOML: outboundHTTPClient читает http.ProxyFromEnvironment;
+# ALL_PROXY не читается — поэтому оба варианта сразу. Схема обязательна (иначе CONNECT на SOCKS-порт).
+# NO_PROXY: loopback + RustFS/PostgreSQL по P2P-линку (minio-go тоже читает эти переменные)
+Environment=HTTP_PROXY=socks5h://172.20.0.1:1080
+Environment=HTTPS_PROXY=socks5h://172.20.0.1:1080
+Environment=NO_PROXY=localhost,127.0.0.1,::1,172.21.6.249
+
 # Pomen (домен khrazhevnik.panelka.yadr01.internal)
 # port-10002 обязателен: у контейнера два PublishPort, без label Pomen взял бы первый попавшийся
 Label=port-10002
