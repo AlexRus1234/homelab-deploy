@@ -40,6 +40,7 @@
 | synapse | LXC | `172.20.6.5` | Matrix Synapse ([10 — Matrix](../Настройка/10_Matrix_мессенджер.md)) |
 | bridge-matrix | LXC | `172.20.6.6` | Matrix-мост (mautrix-telegram) |
 | sftpgo | LXC (CT 106) | `172.20.6.8` + `172.21.6.251` (eth1, `vmbr1`) | Файловое облако ([14 — SFTPGo](../Настройка/14_SFTPGo_облако.md)) |
+| `gitrunner` | ВМ (VM 106) | `172.20.6.7` | Forgejo Runner — CI/CD (rootless Podman), см. [09 — Forgejo](../Настройка/09_Forgejo_Git_CI.md) |
 | `panelka` | ВМ | `172.20.6.9` + `172.21.6.230` (`vmbr1`) | NORA, Khrazhevnik — GitOps |
 
 ---

@@ -39,9 +39,8 @@
 | Authentik | ВМ (VM 102) | `172.20.5.4` | SSO-провайдер ([11 — Authentik](../Настройка/11_Authentik_SSO.md)) |
 | Vaultwarden | LXC | `172.20.5.6` | Менеджер паролей (из эп. 6; **планируется переделка**) |
 | `obshaga` | ВМ (VM 115) | `172.20.5.17` | Пользовательские сервисы (Dashy, LinkStack, Memos, Mortis) — GitOps |
-| `gitrunner` | ВМ (VM 106) | `172.20.6.7` | Forgejo Runner (CI/CD, rootless Podman) — создан из шаблона yadr00 |
 
-> Шаблон базовой ВМ (Arch, `Base`/VM 102-клоны) хранится на этом узле; из него разворачиваются ВМ `obshaga`, Authentik, runner.
+> Шаблон базовой ВМ (Arch, `Base`/VM 102-клоны) хранится на этом узле; из него разворачиваются ВМ `obshaga` и Authentik (а также клон для runner — но сам `gitrunner` живёт на [YADR01](YADR01_Proxmox.md)).
 
 ---
 
