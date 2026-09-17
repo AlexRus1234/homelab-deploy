@@ -5,13 +5,13 @@
 
 ## 1. Прямой линк Proxmox ↔ NAS
 
-Point-to-Point `/31` для ускорения трафика БД.
+Point-to-Point `/24` (сеть `172.21.6.0/24`) для ускорения трафика БД. Изначально линк был `/31`, расширен до `/24` для удобства подключения LXC/ВМ узла YADR01 (план адресов — [Архитектура и сеть](../Инфраструктура/01_архитектура_и_сеть.md)).
 
 **На Proxmox** (`/etc/network/interfaces`):
 ```text
 auto nic1
 iface nic1 inet static
-        address 172.21.6.254/31
+        address 172.21.6.250/24
 ```
 ```bash
 ifreload -a
@@ -24,11 +24,11 @@ ip a show nic1
 Name=enp8s0
 
 [Network]
-Address=172.21.6.255/31
+Address=172.21.6.249/24
 ```
 ```bash
 sudo systemctl restart systemd-networkd
-ping 172.21.6.254   # проверка с обеих сторон
+ping 172.21.6.250   # проверка с обеих сторон
 ```
 
 ---
@@ -37,7 +37,7 @@ ping 172.21.6.254   # проверка с обеих сторон
 
 **Задача:** непривилегированные LXC (Paperless, Karakeep и др.) пишут на NAS, но данные хранятся на SKLD00.
 
-**Дано:** NAS `172.20.50.1`, шара `Share`, подпапка `YADR/shara/yadr00`.
+**Дано:** шара `Share`, подпапка `YADR/shara/yadr00`. NAS адресуется по прямому линку `172.21.6.249` (P2P `vmbr1`, сторона YADR01 — `172.21.6.250`); для узлов **без** прямого линка (YADR00) — основная сеть `172.20.50.1`.
 
 ### Шаг 1. Скрытый файл пароля
 ```bash
@@ -59,7 +59,8 @@ nano /etc/fstab
 ```
 ```text
 # 1. Техническое монтирование корня NAS (скрыто)
-//172.20.50.1/Share /mnt/.nas_root_hidden cifs credentials=/root/.smbcredentials,uid=100000,gid=100000,forceuid,forcegid,dir_mode=0777,file_mode=0777,iocharset=utf8,noperm,nofail 0 0
+# YADR01 — по прямому линку (vmbr1); YADR00 (линка нет) — //172.20.50.1/Share
+//172.21.6.249/Share /mnt/.nas_root_hidden cifs credentials=/root/.smbcredentials,uid=100000,gid=100000,forceuid,forcegid,dir_mode=0777,file_mode=0777,iocharset=utf8,noperm,nofail 0 0
 
 # 2. Bind только рабочей папки
 /mnt/.nas_root_hidden/YADR/becap /mnt/becap none bind 0 0

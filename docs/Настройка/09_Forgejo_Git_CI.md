@@ -1,11 +1,11 @@
 # 09 — Forgejo: Git + CI/CD + SSO
 
 > Свой Git-сервер + Runner (Rootless Podman) + SSO через Authentik.
-> LXC `172.20.1.20` на YADR00. БД PostgreSQL на NAS (`172.20.50.10`).
+> LXC `172.20.5.2` (CT 108) на YADR00. IP выдаётся статикой через Intermasq (по MAC). БД PostgreSQL на NAS (`172.20.50.10`).
 
 ## Этап 1. Подготовка Proxmox (LXC)
 
-Контейнер **Unprivileged**, шаблон `archlinux`, Root Disk 8 GB, 2 ядра / 1024 MB, статический IP `172.20.1.20/16`.
+Контейнер **Unprivileged**, шаблон `archlinux`, Root Disk 8 GB, 2 ядра / 1024 MB, статический IP `172.20.5.2/16`.
 **Не запускать** — добавить Mount Point: Storage (емкий диск), Disk size 50 GB, Path `/var/lib/forgejo`, галочка Backup.
 
 ### Создание БД и пользователя (на NAS)
@@ -71,7 +71,7 @@ update-ca-trust
 
 ```bash
 systemctl enable --now forgejo
-# Браузер: http://172.20.1.20:3000
+# Браузер: http://172.20.5.2:3000
 ```
 В установщике:
 - БД: PostgreSQL (IP, юзер, пароль)
@@ -83,7 +83,7 @@ systemctl enable --now forgejo
 
 ## Этап 5. Конфиг `app.ini`
 
-`/etc/forgejo/app.ini` — поддержка S3 (MinIO), Valkey (Redis), динамическая подмена доменов для Caddy:
+`/etc/forgejo/app.ini` — поддержка S3 (RustFS), Valkey (Redis), динамическая подмена доменов для Caddy:
 
 ```ini
 APP_NAME = Ваш Forgejo
@@ -126,7 +126,7 @@ PROVIDER_CONFIG = redis://:Ваш_Пароль_От_Valkey@172.20.50.12:6379/1
 
 [storage]
 STORAGE_TYPE = minio
-MINIO_ENDPOINT = 172.20.50.13:9000
+MINIO_ENDPOINT = 172.21.6.249:9000
 MINIO_ACCESS_KEY_ID = Ваш_Access_Key
 MINIO_SECRET_ACCESS_KEY = Ваш_Secret_Key
 MINIO_BUCKET = forgejo-data
@@ -170,7 +170,7 @@ systemctl restart forgejo
 ```caddy
 # Внутренний (для себя, сертификат Step-CA)
 git.yadr00.internal {
-    reverse_proxy 172.20.1.20:3000 {
+    reverse_proxy 172.20.5.2:3000 {
         header_up X-Forwarded-Host git.yadr00.internal
     }
     import my_tls
@@ -185,7 +185,7 @@ git.alexrus1234.ru {
     }
     respond @block_login "Local login is disabled for external users. Use SSO." 403
 
-    reverse_proxy 172.20.1.20:3000 {
+    reverse_proxy 172.20.5.2:3000 {
         header_up X-Forwarded-Host git.alexrus1234.ru
     }
 }

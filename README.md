@@ -11,12 +11,15 @@
 | [`03_gitops_агент.md`](docs/Инфраструктура/03_gitops_агент.md) | Pull-модель, Webhook, sync-state.sh |
 | [`04_доменная_схема.md`](docs/Инфраструктура/04_доменная_схема.md) | Доменные зоны, TLS, Caddy |
 | [`05_доменные_имена.md`](docs/Инфраструктура/05_доменные_имена.md) | Сводная таблица всех доменов с IP:port |
+| [`06_настройка_ВМ.md`](docs/Инфраструктура/06_настройка_ВМ.md) | Подготовка ВМ: Rootless Podman + GitOps-агент |
 
 ## Паспорта узлов
 
 | Документ | Узел |
 | :--- | :--- |
 | [`SHLZ00_роутер.md`](docs/Узлы/SHLZ00_роутер.md) | Маршрутизатор: железо, интерфейсы, DNS-«сэндвич», PKI, IDS/IPS, QoS |
+| [`YADR00_Proxmox.md`](docs/Узлы/YADR00_Proxmox.md) | Гипервизор #1 (N100, 32 ГБ): Forgejo, Authentik, obshaga |
+| [`YADR01_Proxmox.md`](docs/Узлы/YADR01_Proxmox.md) | Гипервизор #2 (Ryzen 7 5800HS, 64 ГБ, две сети): PBS, SFTPGo, panelka |
 | [`SKLD00_NAS.md`](docs/Узлы/SKLD00_NAS.md) | NAS: железо, дисковая разметка (Btrfs+ZFS), macvlan БД, Samba |
 
 ## Настройка (пошаговые гайды)
@@ -25,7 +28,7 @@
 | :--- | :--- | :--- |
 | 01 | [`01_NAS_система_ZFS_и_Btrfs.md`](docs/Настройка/01_NAS_система_ZFS_и_Btrfs.md) | Разметка NVMe, Btrfs RAID1/RAID0, ZFS RAIDZ2, Snapper |
 | 02 | [`02_NAS_сетевые_службы_Samba.md`](docs/Настройка/02_NAS_сетевые_службы_Samba.md) | Samba `\\SKLD00\Share`, wsdd/avahi |
-| 03 | [`03_NAS_базы_данных_и_S3.md`](docs/Настройка/03_NAS_базы_данных_и_S3.md) | PostgreSQL/MongoDB/Valkey/MinIO через macvlan |
+| 03 | [`03_NAS_базы_данных_и_S3.md`](docs/Настройка/03_NAS_базы_данных_и_S3.md) | PostgreSQL/MongoDB/Valkey (macvlan) + RustFS S3 на P2P-линке |
 | 04 | [`04_роутер_базовая_сеть.md`](docs/Настройка/04_роутер_базовая_сеть.md) | systemd-networkd, dnsmasq, nftables, NAT |
 | 05 | [`05_роутер_NGFW_DNS_QoS_IPS.md`](docs/Настройка/05_роутер_NGFW_DNS_QoS_IPS.md) | AdGuard+dnsmasq+Unbound, CAKE-шейпер, Zeek/Suricata/CrowdSec |
 | 06 | [`06_PKI_Step-CA.md`](docs/Настройка/06_PKI_Step-CA.md) | Свой центр сертификации, ACME для зоны `.internal` |
@@ -36,6 +39,8 @@
 | 11 | [`11_Authentik_SSO.md`](docs/Настройка/11_Authentik_SSO.md) | SSO через Podman Quadlets, интеграция с Proxmox |
 | 12 | [`12_VPN_Headscale_VPS.md`](docs/Настройка/12_VPN_Headscale_VPS.md) | Доступ из интернета, свой DERP, Split DNS |
 | 13 | [`13_Intermasq_менеджер_DNS.md`](docs/Настройка/13_Intermasq_менеджер_DNS.md) | Менеджер dnsmasq + авто-провижининг Proxmox |
+| 14 | [`14_SFTPGo_облако.md`](docs/Настройка/14_SFTPGo_облако.md) | Файловое облако поверх NAS: LXC, SSO (OIDC), SFTP |
+| 15 | [`15_PBS_сервер.md`](docs/Настройка/15_PBS_сервер.md) | PBS в LXC: datastore на SMB, GC/prune, бэкап самого PBS |
 
 ## Дерево репозитория
 
@@ -43,6 +48,7 @@
 homelab-deploy/
 ├── .forgejo/
 │   └── workflows/
+│       ├── mirror.yaml
 │       ├── yadr00-obshaga-webhook-deploy.yml
 │       ├── yadr00-deploy-intermasq.yml
 │       ├── yadr01-deploy-caddy.yml
@@ -58,27 +64,30 @@ homelab-deploy/
 │   │   ├── 03_gitops_агент.md
 │   │   ├── 04_доменная_схема.md
 │   │   ├── 05_доменные_имена.md
-│   │   └── настройка/
-│   │       └── 02_настройка_ВМ.md
+│   │   └── 06_настройка_ВМ.md
 │   │
 │   ├── Узлы/
 │   │   ├── SHLZ00_роутер.md
+│   │   ├── YADR00_Proxmox.md
+│   │   ├── YADR01_Proxmox.md
 │   │   └── SKLD00_NAS.md
 │   │
 │   ├── Настройка/
-│       ├── 01_NAS_система_ZFS_и_Btrfs.md
-│       ├── 02_NAS_сетевые_службы_Samba.md
-│       ├── 03_NAS_базы_данных_и_S3.md
-│       ├── 04_роутер_базовая_сеть.md
-│       ├── 05_роутер_NGFW_DNS_QoS_IPS.md
-│       ├── 06_PKI_Step-CA.md
-│       ├── 07_автоматизация_DNS_и_прокси.md
-│       ├── 08_Proxmox_бекап_PBS.md
-│       ├── 09_Forgejo_Git_CI.md
-│       ├── 10_Matrix_мессенджер.md
-│       ├── 11_Authentik_SSO.md
-│       ├── 12_VPN_Headscale_VPS.md
-│       └── 13_Intermasq_менеджер_DNS.md
+│   │   ├── 01_NAS_система_ZFS_и_Btrfs.md
+│   │   ├── 02_NAS_сетевые_службы_Samba.md
+│   │   ├── 03_NAS_базы_данных_и_S3.md
+│   │   ├── 04_роутер_базовая_сеть.md
+│   │   ├── 05_роутер_NGFW_DNS_QoS_IPS.md
+│   │   ├── 06_PKI_Step-CA.md
+│   │   ├── 07_автоматизация_DNS_и_прокси.md
+│   │   ├── 08_Proxmox_бекап_PBS.md
+│   │   ├── 09_Forgejo_Git_CI.md
+│   │   ├── 10_Matrix_мессенджер.md
+│   │   ├── 11_Authentik_SSO.md
+│   │   ├── 12_VPN_Headscale_VPS.md
+│   │   ├── 13_Intermasq_менеджер_DNS.md
+│   │   ├── 14_SFTPGo_облако.md
+│   │   └── 15_PBS_сервер.md
 │
 │   └── заметки/
 │       └── podman/

@@ -149,7 +149,7 @@ journalctl -fu authentik-server   # ждать "Starting gunicorn"
 ## Шаг 6. Caddy
 ```caddy
 auth.alexrus1234.ru {
-    reverse_proxy 172.20.0.101:9000
+    reverse_proxy 172.20.5.4:9000
 }
 ```
 ```bash

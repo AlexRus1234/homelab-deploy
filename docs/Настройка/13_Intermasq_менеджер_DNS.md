@@ -5,9 +5,14 @@
 
 ## Intermasq — концепция безопасности (Rootless)
 
-- Служба от непривилегированного пользователя `intermasq`.
+- Служба запущена от выделенного непривилегированного пользователя `intermasq` (режим «systemd via sudo» из README проекта; лог старта подскажет выбранный режим: `[INIT] System: systemd (via sudo)`).
 - Запись разрешена только в `/etc/intermasq/` и `/etc/dnsmasq.d/`.
-- Повышение прав — только через `sudoers`: `/usr/bin/systemctl restart dnsmasq` и `systemctl is-active dnsmasq`.
+- Повышение прав — только через `sudo -n` по sudoers-файлу `/etc/sudoers.d/intermasq`:
+  ```sudoers
+  intermasq ALL=(root) NOPASSWD: /usr/bin/systemctl is-active dnsmasq
+  intermasq ALL=(root) NOPASSWD: /usr/bin/systemctl restart dnsmasq
+  intermasq ALL=(root) NOPASSWD: /usr/bin/systemctl restart intermasq
+  ```
 
 ---
 

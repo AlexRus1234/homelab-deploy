@@ -95,4 +95,4 @@ systemctl enable --now pve-hook-watcher.service
 ## Бэкапы критичных компонентов
 - Скрипты: `/var/lib/vz/snippets/` (в бэкап хоста Proxmox).
 - Данные Caddy: `/var/lib/caddy` в контейнере 101.
-- **Ключи PKI:** на роутере в `/root/.step`. **КРИТИЧНО ВАЖНО БЭКАПИТЬ ROOT KEY.**
+- **Ключи PKI:** на роутере в `/etc/step-ca/` (перенесены из `/root/.step`, см. [06 — PKI Step-CA](06_PKI_Step-CA.md)). **КРИТИЧНО ВАЖНО БЭКАПИТЬ ROOT KEY.**

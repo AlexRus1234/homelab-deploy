@@ -10,7 +10,7 @@
 | Synapse (ядро) | LXC `elementsynapse` | `172.20.6.5` |
 | PostgreSQL | NAS | `172.20.50.10:5432` |
 | Valkey (Redis) | NAS | `172.20.50.12:6379` |
-| RustFS/MinIO (S3 media) | NAS | `172.20.50.13:9000` |
+| RustFS (S3 media) | NAS (P2P-линк) | `172.21.6.249:9000` |
 | Caddy + Coturn | VPS | белый IP |
 
 ---
@@ -32,7 +32,7 @@ CREATE DATABASE synapse OWNER synapse ENCODING 'UTF8' LC_COLLATE = 'C' LC_CTYPE 
 
 ## Шаг 2. S3 через Rclone (в LXC Synapse)
 
-Бакет `matrix-media` + API-ключ создаются в MinIO (`172.20.50.13`).
+Бакет `matrix-media` + API-ключ создаются в RustFS (`172.21.6.249:9000`, P2P-линк).
 ```bash
 apt update && apt upgrade -y
 apt install -y curl rclone fuse3
@@ -47,7 +47,7 @@ provider = Minio
 env_auth = false
 access_key_id = ТВОЙ_ACCESS_KEY
 secret_access_key = ТВОЙ_SECRET_KEY
-endpoint = http://172.20.50.13:9000
+endpoint = http://172.21.6.249:9000
 force_path_style = true
 region = us-east-1
 ```
@@ -215,7 +215,7 @@ xir.alexrus1234.ru {
         header Content-Type "application/json"
         respond `{"m.server":"xir.alexrus1234.ru:443"}`
     }
-    reverse_proxy 172.20.6.4:8008 {
+    reverse_proxy 172.20.6.5:8008 {
         header_up X-Forwarded-For {remote_host}
     }
 }
