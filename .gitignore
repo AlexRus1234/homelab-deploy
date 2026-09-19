@@ -1,6 +1,17 @@
+# AGENTS.md — локальная карта репозитория для ИИ-агентов, не коммитится.
+AGENTS.md
+
 *.backup
 
 # Боевые секреты (.env) — никогда не коммитить.
 # Шаблоны-примеры (*.env.example) остаются в репозитории.
 *.env
 !*.env.example
+
+# ОС и редакторы
+Thumbs.db
+desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
