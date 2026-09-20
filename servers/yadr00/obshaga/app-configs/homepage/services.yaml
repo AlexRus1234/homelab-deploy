@@ -32,13 +32,6 @@
         proxmoxNode: yadr01
         proxmoxVMID: 101
         proxmoxType: lxc
-        # datastore_usage / failed_tasks_24h / cpu / mem самой PBS
-        # username = ПОЛНЫЙ Token ID ровно как в PBS: Configuration → User Management → API Tokens
-        widget:
-          type: proxmoxbackupserver
-          url: https://172.20.6.3:8007
-          username: homepage@pbs!homepage
-          password: "{{HOMEPAGE_VAR_PBS_SECRET}}"
     - Forgejo:
         icon: forgejo.png
         href: https://git.yadr00.internal
