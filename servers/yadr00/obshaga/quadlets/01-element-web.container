@@ -1,0 +1,29 @@
+[Unit]
+Description=Element Web (Matrix-клиент, статика на nginx-unprivileged)
+After=network-online.target
+
+[Container]
+Image=git.yadr00.internal/build/element-web:latest
+AutoUpdate=registry
+
+ContainerName=element-web
+
+# nginx внутри слушает ELEMENT_WEB_PORT (envsubst-шаблон образа).
+# 8080 вместо дефолтного 80 — не нужен Sysctl ip_unprivileged_port_start (как у linkstack)
+Environment=ELEMENT_WEB_PORT=8080
+PublishPort=10001:8080
+
+# Конфиг Element: входная точка образа копирует /app/config*.json в /tmp/element-web-config,
+# откуда nginx раздаёт их по пути /config (см. apps/web/docker в репо element-web)
+Volume=/opt/appdata/config/element-web/config.json:/app/config.json:ro
+
+# Healthcheck образа: /config.json отвечает, значит nginx и конфиг на месте
+HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:8080/config.json || exit 1
+
+# Pomen (домен element.obshaga.yadr00.internal)
+Label=Element
+Label=10001
+Label=proto-http
+
+[Install]
+WantedBy=default.target
