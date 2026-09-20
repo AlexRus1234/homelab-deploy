@@ -99,4 +99,4 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:10000
 | `image not known` / нет контейнера | образа нет в реестре | запустить workflow зеркалирования, проверить secrets |
 | Новая папка в `app-configs` не появляется на ВМ | `/opt/appdata/config` не `app-runner` | п. 2.2, затем rsync руками |
 | Push прошёл, изменения не применились | репо на ВМ уже было свежим → `sync-state.sh` вышел по «Изменений не найдено» до rsync | применить шаги руками: `rsync -rlptD servers/yadr00/obshaga/app-configs/ /opt/appdata/config/` + `daemon-reload` |
-| Карточки PVE без CPU/RAM | токен/секрет неверен | `journalctl --user -u 00-homepage -n 30 --no-pager`, пересоздать токен |
+| Карточки/виджеты PVE пустые, в логе `403` | у токена нет своей записи **API Token Permission** (при Privilege Separation права = пересечение прав юзера и токена), либо имя ноды не совпало — **регистр важен** (`YADR00` ≠ `yadr00`) | шаг 5 в п. 2.4; ключ в `proxmox.yaml` и `node:`/`proxmoxNode:` = hostname ноды из Datacenter → Nodes |

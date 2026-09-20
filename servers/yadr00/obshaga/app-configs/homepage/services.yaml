@@ -14,7 +14,7 @@
           url: https://172.20.5.1:8006
           username: homepage@pam!homepage
           password: "{{HOMEPAGE_VAR_PROXMOX_SECRET_YADR00}}"
-          node: yadr00
+          node: YADR00
     - Proxmox VE (yadr01):
         icon: proxmox.png
         href: https://proxmox.yadr01.internal
@@ -36,20 +36,20 @@
         icon: forgejo.png
         href: https://git.yadr00.internal
         description: Git-сервер + реестр образов и пакетов — LXC 108
-        proxmoxNode: yadr00
+        proxmoxNode: YADR00
         proxmoxVMID: 108
         proxmoxType: lxc
     - Authentik:
         icon: authentik.png
         href: https://authentic.yadr00.internal
         description: SSO-провайдер — VM 102
-        proxmoxNode: yadr00
+        proxmoxNode: YADR00
         proxmoxVMID: 102
     - Vaultwarden:
         icon: vaultwarden.png
         href: https://alpine-vaultwarden.yadr00.internal
         description: Менеджер паролей
-        # proxmoxNode: yadr00
+        # proxmoxNode: YADR00
         # proxmoxVMID: TODO VMID LXC Vaultwarden
         # proxmoxType: lxc
 
@@ -58,7 +58,7 @@
         abbr: OB
         href: https://homepage.obshaga.yadr00.internal
         description: Эта ВМ (VM 115) — homepage, linkstack, memos, mortis
-        proxmoxNode: yadr00
+        proxmoxNode: YADR00
         proxmoxVMID: 115
     - Memos:
         icon: memos.png
