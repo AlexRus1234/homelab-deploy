@@ -63,7 +63,8 @@
         description: ВМ gitrunner (yadr01) — последние задачи Actions репо homelab-deploy
         # proxmoxNode: yadr01
         # proxmoxVMID: TODO VMID ВМ gitrunner (по паспорту YADR01 — VM 106)
-        # Последние задачи CI: dynamic-list (имя задачи + статус), клик — на run в Forgejo
+        # Последние задачи CI: dynamic-list (имя workflow + статус), клик — на run в Forgejo.
+        # Ответ Forgejo: {"workflow_runs": [{name, status, run_number, ...}], "total_count": N}
         widget:
           type: customapi
           url: http://172.20.5.2:3000/api/v1/repos/AlexRus1234/homelab-deploy/actions/tasks
@@ -72,11 +73,11 @@
           display: dynamic-list
           refreshInterval: 30000
           mappings:
-            items: entries
+            items: workflow_runs
             name: name
             label: status
             limit: 5
-            target: https://git.yadr00.internal/AlexRus1234/homelab-deploy/actions/runs/{run_id}
+            target: https://git.yadr00.internal/AlexRus1234/homelab-deploy/actions/runs/{run_number}
 
 - Приложения:
     - Общага (ВМ):
