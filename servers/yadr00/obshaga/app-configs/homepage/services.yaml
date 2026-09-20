@@ -35,9 +35,9 @@
     - Forgejo:
         icon: forgejo.png
         href: https://git.yadr00.internal
-        description: Git-сервер + реестр образов и пакетов — LXC 108
+        description: Git-сервер + реестр образов и пакетов — LXC 100
         proxmoxNode: YADR00
-        proxmoxVMID: 108
+        proxmoxVMID: 100
         proxmoxType: lxc
         # репозитории / уведомления / issues / PR (токен scopes: repository, issue, notifications)
         widget:
@@ -114,6 +114,25 @@
         abbr: KH
         href: https://khrazhevnik.panelka.yadr01.internal
         description: Зеркало linux-репозиториев — порт 10002
+        # Статистика кеша из админ-API (:10003 → :30202, Bearer khz_-токен со scope admin)
+        widget:
+          type: customapi
+          url: http://172.20.6.9:10003/api/v1/cache/stats
+          headers:
+            Authorization: Bearer {{HOMEPAGE_VAR_KHRZ_TOKEN}}
+          refreshInterval: 30000
+          mappings:
+            - field: hit_ratio
+              label: Hit ratio
+              format: percent
+            - field: packages
+              label: Пакетов в кеше
+              format: number
+            - field: bytes_to_clients
+              label: Отдано клиентам
+              format: bytes
+            - field: upstream_errors
+              label: Ошибок upstream
     - SFTPGo:
         abbr: SFTP
         href: https://sftpgo.yadr01.internal

@@ -101,6 +101,8 @@ curl -sk -H "Authorization: $TOK" https://172.20.5.1:8006/api2/json/cluster/reso
 
 **Forgejo Runner** (карточка «Forgejo Runner»): список последних задач Actions репо `homelab-deploy` (имя + статус, клик ведёт на run). Работает через `customapi`-виджет на `/api/v1/repos/<owner>/<repo>/actions/tasks` — **тот же токен**, что у виджета Forgejo (новых секретов не нужно). Требует Forgejo с Actions API (1.22+). Удалённый запуск пайплайнов из homepage невозможен — только из UI Forgejo (Run workflow) или `forgejo-cli`.
 
+**Khrazhevnik** (карточка «Khrazhevnik»): статистика кеша — hit ratio, пакетов в кеше, отдано клиентам, ошибки upstream. Источник — админ-API `http://172.20.6.9:10003/api/v1/cache/stats` (`GET /api/v1/cache/stats`, docs Хражевника → api.md). Токен: веб-админка Хражевника → Users → API-токен со scope **admin** (секрет `khz_…` показывается один раз) → `HOMEPAGE_VAR_KHRZ_TOKEN`.
+
 **Контейнеры obshaga** (карточки Memos/Mortis/LinkStack): живой статус и CPU/RAM контейнеров.
 Ничего создавать не нужно: сокет rootless Podman проброшен в quadlet (`Volume=%t/podman/podman.sock:/var/run/docker.sock`), инстанс описан в `docker.yaml`. Требование — включённый `podman.socket` (user), гайд 06 этап 2.1.
 
