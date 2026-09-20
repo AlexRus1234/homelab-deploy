@@ -130,7 +130,10 @@ homer.alexrus1234.ru {
     }
 }
 
-# LinkStack — публичная страница ссылок, админка снаружи закрыта
+# LinkStack — публичная страница ссылок, админка снаружи закрыта.
+# Проксируем напрямую в ВМ (как sftpgo/xir), Host НЕ подменяем:
+# LinkStack генерирует абсолютные ссылки по Host — с подменой на
+# linkstack.obshaga.yadr00.internal страница снаружи остаётся без css/картинок.
 link.alexrus1234.ru {
     @root path /
     rewrite @root /@AlexRus1234
@@ -138,13 +141,7 @@ link.alexrus1234.ru {
     @deny path /admin* /dashboard* /install* /signup*
     respond @deny 403
 
-    reverse_proxy https://linkstack.obshaga.yadr00.internal {
-        transport http {
-            tls_insecure_skip_verify
-        }
-        header_up Host {upstream_hostport}
-        header_up X-Real-IP {remote_host}
-    }
+    reverse_proxy 172.20.5.17:10003
 }
 ```
 
