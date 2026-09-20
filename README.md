@@ -88,7 +88,11 @@ homelab-deploy/
 │   │   ├── 12_VPN_Headscale_VPS.md
 │   │   ├── 13_Intermasq_менеджер_DNS.md
 │   │   ├── 14_SFTPGo_облако.md
-│   │   └── 15_PBS_сервер.md
+│   │   ├── 15_PBS_сервер.md
+│   │   │
+│   │   └── контейнеры/
+│   │       └── homepage/
+│   │           └── README.md
 │
 │   └── заметки/
 │       └── podman/

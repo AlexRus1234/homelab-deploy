@@ -8,10 +8,23 @@
         icon: proxmox.png
         href: https://proxmox.yadr00.internal
         description: Гипервизор #1 — N100, 32 ГБ
+        # node: должно совпадать с hostname ноды PVE и ключом в proxmox.yaml
+        widget:
+          type: proxmox
+          url: https://172.20.5.1:8006
+          username: homepage@pam!homepage
+          password: "{{HOMEPAGE_VAR_PROXMOX_SECRET_YADR00}}"
+          node: yadr00
     - Proxmox VE (yadr01):
         icon: proxmox.png
         href: https://proxmox.yadr01.internal
         description: Гипервизор #2 — Ryzen 7 5800HS, 64 ГБ
+        widget:
+          type: proxmox
+          url: https://172.20.6.1:8006
+          username: homepage@pam!homepage
+          password: "{{HOMEPAGE_VAR_PROXMOX_SECRET_YADR01}}"
+          node: yadr01
     - PBS:
         icon: proxmox.png
         href: https://pbs.yadr01.internal
