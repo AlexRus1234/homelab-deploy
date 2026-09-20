@@ -3,7 +3,7 @@
 > **Контейнер:** `01-element-web.container` (ВМ `obshaga`, yadr00)
 > **Образ:** `git.yadr00.internal/build/element-web:latest` (сборка из репо element-web, пакет Forgejo `Build`)
 > **Порт:** `10001` (внешний) → `8080` (nginx-unprivileged внутри)
-> **Домен:** `element.obshaga.yadr00.internal` → `172.20.5.17:10001` (регистрация через Pomen по labels)
+> **Домен:** `element.obshaga.yadr00.internal` → `172.20.5.17:10001`. Pomen: домен = `ContainerName` (у нас `element`), label с именем — только fallback; DNS — wildcard `*.obshaga.yadr00.internal` → Caddy `172.20.5.3`
 
 ---
 
@@ -48,3 +48,4 @@ Volume=/opt/appdata/config/element-web/config.json:/app/config.json:ro
 | `/config.json` отдаёт 404 | не смонтировался конфиг | проверить `/opt/appdata/config/element-web/config.json` на ВМ |
 | В контейнере `/app/config.json` — каталог | на момент первого старта файла не было (rsync не прошёл / права), podman создал директорию | `systemctl --user stop 01-element-web && rm -rf` «файла»-каталога внутри образа нельзя — перезапустить службу после появления настоящего файла |
 | Не удаётся войти (CORS / недоступен сервер) | введённый на экране входа homeserver недоступен из браузера клиента | проверить URL homeserver и его доступность с машины, где открыт Element |
+| Домен открывается, но пусто / SPA-ошибка `cannot_load_config` | DNS wildcard ведёт в Caddy, а маршрута для этого имени нет (Pomen не зарегистрировал) | сверить маршрут: `curl http://172.20.5.3:2019/config/` — имя хоста должно совпадать с `ContainerName` |

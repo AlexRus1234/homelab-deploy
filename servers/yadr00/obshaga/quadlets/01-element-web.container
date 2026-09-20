@@ -6,7 +6,8 @@ After=network-online.target
 Image=git.yadr00.internal/build/element-web:latest
 AutoUpdate=registry
 
-ContainerName=element-web
+# Имя контейнера = домен Pomen: element.obshaga.yadr00.internal (Pomen берёт ContainerName, label — только fallback)
+ContainerName=element
 
 # nginx внутри слушает ELEMENT_WEB_PORT (envsubst-шаблон образа).
 # 8080 вместо дефолтного 80 — не нужен Sysctl ip_unprivileged_port_start (как у linkstack)

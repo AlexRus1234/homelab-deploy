@@ -96,7 +96,7 @@
         href: https://element.obshaga.yadr00.internal
         description: Matrix-клиент — порт 10001
         server: obshaga
-        container: element-web
+        container: element
     - NORA:
         icon: package
         href: https://nora.panelka.yadr01.internal
