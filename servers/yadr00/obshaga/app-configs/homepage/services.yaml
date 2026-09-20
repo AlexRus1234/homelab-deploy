@@ -133,6 +133,23 @@
               format: bytes
             - field: upstream_errors
               label: Ошибок upstream
+    - Khrazhevnik (раздачи):
+        abbr: KH
+        href: https://khrazhevnik.panelka.yadr01.internal
+        description: Последние 10 клиентских раздач кеша (HIT/MISS/STALE)
+        widget:
+          type: customapi
+          url: http://172.20.6.9:10003/api/v1/cache/transactions?limit=10
+          headers:
+            Authorization: Bearer {{HOMEPAGE_VAR_KHRZ_TOKEN}}
+          display: dynamic-list
+          refreshInterval: 15000
+          mappings:
+            # ответ — голый массив в корне, items не указываем
+            name: path
+            label: status
+            limit: 10
+            target: https://khrazhevnik.panelka.yadr01.internal/{path}
     - SFTPGo:
         abbr: SFTP
         href: https://sftpgo.yadr01.internal
