@@ -30,7 +30,33 @@ Volume=/opt/appdata/config/element-web/config.json:/app/config.json:ro
 
 Доставка — стандартный GitOps-конвейер: push → webhook → `sync-state.sh` → rsync → `podman auto-update`.
 
-## 2. Деплой с нуля
+## 2. Внешний доступ — `element.alexrus1234.ru` (Caddy на VPS)
+
+Цель инстанса — публичный клиент: чужие люди открывают, вводят **свой** homeserver на экране входа (`disable_custom_urls: false`). Внутренний `element.obshaga.yadr00.internal` чужим бесполезен (DNS + Step-CA только в LAN).
+
+Блок на VPS (схема mortis/homer из [12_VPN_Headscale_VPS.md](../../Инфраструктура/12_VPN_Headscale_VPS.md)):
+
+```caddy
+element.alexrus1234.ru {
+    encode zstd gzip
+
+    @static path /bundles/* /themes/* /vector-icons/* /i18n/* /fonts/*
+    header @static Cache-Control "public, max-age=604800, immutable"
+
+    reverse_proxy https://element.obshaga.yadr00.internal {
+        transport http {
+            tls_insecure_skip_verify
+        }
+        header_up Host {upstream_hostport}
+    }
+}
+```
+
+- `encode zstd gzip` — **критично**: образ отдаёт статику без сжатия (nginx образа без gzip), первый груз ~20 МБ в сотне файлов; без сжатия через туннель VPS↔дом ~минута, с ним ~10 с
+- `@static` + immutable-кэш — имена файлов хэшированы, повторные заходы не качают статику
+- `tls_insecure_skip_verify` — серт внутреннего Caddy от Step-CA, VPS ему не верит; `header_up Host {upstream_hostport}` — внутренний Caddy маршрутизирует по Host
+
+## 3. Деплой с нуля
 
 1. Образ уже публикуется в реестр (пакет `Build/element-web`, тег `latest`) — ничего зеркалировать не нужно.
 2. Проверить права на `/opt/appdata/config` (`app-runner:app-runner`) — иначе rsync молча не создаст `element-web/config.json` (п. 2.2 README homepage).
@@ -41,7 +67,7 @@ Volume=/opt/appdata/config/element-web/config.json:/app/config.json:ro
    curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:10001/config.json
    ```
 
-## 3. Troubleshooting
+## 4. Troubleshooting
 
 | Симптом | Причина | Лечение |
 | :--- | :--- | :--- |
@@ -50,3 +76,6 @@ Volume=/opt/appdata/config/element-web/config.json:/app/config.json:ro
 | Не удаётся войти (CORS / недоступен сервер) | введённый на экране входа homeserver недоступен из браузера клиента | проверить URL homeserver и его доступность с машины, где открыт Element |
 | Правка `config.json` в репо не применяется | `sync-state.sh` перезапускает только изменённые `.container`; bind-mount одиночного файла держит старый inode | на ВМ: `systemctl --user restart 01-element-web` (entrypoint копирует конфиг в nginx только при старте) |
 | Домен открывается, но пусто / SPA-ошибка `cannot_load_config` | DNS wildcard ведёт в Caddy, а маршрута для этого имени нет (Pomen не зарегистрировал) | сверить маршрут: `curl http://172.20.5.3:2019/config/` — имя хоста должно совпадать с `ContainerName` |
+| Чёрный экран (конфиг грузится, логина нет) | дефолтный homeserver из `default_server_config` недоступен из браузера и **медленно** отваливается (matrix.org за РКН — таймауты, свежая сборка висит) | дефолт = быстро отвечающий сервер (`matrix.yadr01.internal`); подтверждено практикой 20.09.2026 |
+| Инкогнито работает, обычное окно — старая ошибка | кэш/service worker профиля, либо прокси-расширение (в инкогнито выключено) | F12 → Application → Service Workers → Unregister + Storage → Clear site data; не помогло — отключить прокси/adblock-расширения; диагностический приём — F12 → Network → «Disable cache» + F5 |
+| Наружу грузится минуту | VPS-блок без `encode zstd gzip` (статика ~20 МБ без сжатия) | см. блок в п. 2 |

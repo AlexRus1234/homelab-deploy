@@ -201,6 +201,38 @@ systemctl enable --now synapse-admin
 
 ---
 
+## Шаг 6.5. Внутренний https-маршрут `matrix.yadr01.internal` (Caddy LXC yadr01)
+
+Клиентский API по TLS внутри LAN: без него браузерным клиентам (Element, FluffyChat) на https-страницах доступен только `http://172.20.6.5:8008`, а это mixed content (браузер блокирует http-API со страницы по https). Файл `/etc/caddy/caddy_conf/matrix.caddy` на LXC caddy (`172.20.6.2`), затем `systemctl reload caddy`:
+
+```caddy
+matrix.yadr01.internal {
+    import my_tls
+
+    # 1. Отдаем паспорт для КЛИЕНТОВ (Element, FluffyChat)
+    handle_path /.well-known/matrix/client {
+        header Access-Control-Allow-Origin "*"
+        header Content-Type "application/json"
+        respond `{"m.homeserver":{"base_url":"https://matrix.yadr01.internal"}}`
+    }
+
+    # 2. Отдаем паспорт для СЕРВЕРОВ (Федерация: связь с matrix.org и другими)
+    handle_path /.well-known/matrix/server {
+        header Content-Type "application/json"
+        respond `{"m.server":"matrix.yadr01.internal:443"}`
+    }
+
+    # 3. Проксируем основной трафик в домашний LXC-контейнер через VPN
+    reverse_proxy 172.20.6.5:8008 {
+        header_up X-Forwarded-For {remote_host}
+    }
+}
+```
+
+Проверка: `curl -k https://matrix.yadr01.internal/_matrix/client/versions` → JSON со списком версий. Используется как дефолтный homeserver в Element (ВМ obshaga, [контейнеры/element-web](контейнеры/element-web/README.md)).
+
+---
+
 ## Шаг 7. Вывод в интернет (VPS + Coturn)
 
 ### Caddy на VPS (`/etc/caddy/Caddyfile`)
