@@ -1,0 +1,6 @@
+# Docker-интеграция: docker-совместимый API rootless Podman самой ВМ.
+# Сокет проброшен в контейнер homepage в quadlet (Volume=%t/podman/podman.sock:/var/run/docker.sock).
+# Документация: https://gethomepage.dev/configs/docker/
+
+obshaga:
+  socket: /var/run/docker.sock

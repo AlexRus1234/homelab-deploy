@@ -14,6 +14,10 @@ PublishPort=10000:3000
 # Конфиги YAML: app-configs/homepage/ → /opt/appdata/config/homepage/ (rsync в sync-state.sh).
 Volume=/opt/appdata/config/homepage:/app/config:Z
 
+# Docker-совместимый API rootless Podman ВМ — для живых статусов контейнеров (docker.yaml).
+# %t = runtime-каталог юзера (/run/user/<uid>); сокет включён по гайду 06, этап 2.1
+Volume=%t/podman/podman.sock:/var/run/docker.sock
+
 # Разрешённый Host за reverse-proxy: без него middleware отдаёт 403
 Environment=HOMEPAGE_ALLOWED_HOSTS=homepage.obshaga.yadr00.internal
 

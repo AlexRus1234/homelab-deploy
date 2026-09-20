@@ -32,6 +32,12 @@
         proxmoxNode: yadr01
         proxmoxVMID: 101
         proxmoxType: lxc
+        # datastore_usage / failed_tasks_24h / cpu / mem самой PBS
+        widget:
+          type: proxmoxbackupserver
+          url: https://172.20.6.3:8007
+          username: homepage@pam!homepage
+          password: "{{HOMEPAGE_VAR_PBS_SECRET}}"
     - Forgejo:
         icon: forgejo.png
         href: https://git.yadr00.internal
@@ -39,6 +45,11 @@
         proxmoxNode: YADR00
         proxmoxVMID: 108
         proxmoxType: lxc
+        # репозитории / уведомления / issues / PR (токен scopes: repository, issue, notifications)
+        widget:
+          type: gitea
+          url: http://172.20.5.2:3000
+          key: "{{HOMEPAGE_VAR_FORGEJO_TOKEN}}"
     - Authentik:
         icon: authentik.png
         href: https://authentic.yadr00.internal
@@ -64,14 +75,20 @@
         icon: memos.png
         href: https://memos.obshaga.yadr00.internal
         description: Заметки — порт 10004
+        server: obshaga
+        container: memos
     - Mortis:
         abbr: MO
         href: https://mortis.obshaga.yadr00.internal
         description: Мост Memos API 0.21 для MoeMemos — порт 10005
+        server: obshaga
+        container: mortis
     - LinkStack:
         abbr: LS
         href: https://linkstack.obshaga.yadr00.internal
         description: Мультиссылки — порт 10003
+        server: obshaga
+        container: systemd-03-linkstack
     - NORA:
         abbr: NR
         href: https://nora.panelka.yadr01.internal
@@ -102,6 +119,12 @@
         icon: adguard-home.png
         href: http://172.20.0.1:3000 # TODO: уточнить порт веб-интерфейса AdGuard на SHLZ00
         description: DNS-фильтрация — роутер SHLZ00
+        # запросы / блокировки / % фильтрации / задержка DNS
+        widget:
+          type: adguard
+          url: http://172.20.0.1:3000 # TODO: тот же порт, что у href
+          username: "{{HOMEPAGE_VAR_ADGUARD_USER}}"
+          password: "{{HOMEPAGE_VAR_ADGUARD_PASSWORD}}"
     - Step-CA:
         abbr: CA
         href: https://172.20.0.1:9000/roots.pem

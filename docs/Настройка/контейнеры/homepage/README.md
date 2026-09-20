@@ -13,7 +13,7 @@
 | Слой | Что | Где |
 | :--- | :--- | :--- |
 | Quadlet | `.container` с портом, HealthCmd, labels для Pomen | `servers/yadr00/obshaga/quadlets/00-homepage.container` |
-| Конфиги | YAML homepage: settings/services/bookmarks/widgets/proxmox | `servers/yadr00/obshaga/app-configs/homepage/` |
+| Конфиги | YAML homepage: settings/services/bookmarks/widgets/proxmox/docker | `servers/yadr00/obshaga/app-configs/homepage/` |
 | Секреты | `homepage.env` (в git — только `.example`), подстановка `{{HOMEPAGE_VAR_*}}` в YAML | на ВМ: `/opt/appdata/config/homepage/homepage.env` |
 | Образ | еженедельное зеркало ghcr.io → реестр Forgejo | `.forgejo/workflows/homepage-image-sync.yaml` |
 
@@ -88,7 +88,23 @@ curl -sk -H "Authorization: $TOK" https://172.20.5.1:8006/api2/json/cluster/reso
 
 Имя `homepage@pam!homepage` уже прописано в `proxmox.yaml`. TLS PVE проверять не нужно — widget-запросы homepage идут с `rejectUnauthorized: false`.
 
-### 2.5. Старт и проверка
+### 2.5. Прочие виджеты (секреты — там же, в `homepage.env`)
+
+**Forgejo** (карточка «Forgejo»): репозитории / уведомления / issues / PR.
+Токен: `git.yadr00.internal` → Settings → Applications → Generate new token, scopes `repository`, `issue`, `notifications` → `HOMEPAGE_VAR_FORGEJO_TOKEN`.
+
+**PBS** (карточка «PBS»): занятость datastore, проваленные задачи за 24ч, CPU/RAM самой PBS.
+На PBS (`https://172.20.6.3:8007`) — юзер `homepage@pam` + токен `homepage`; роль **Audit** назначить И юзеру, И токену отдельно (как в п. 2.4, но роль Audit) → `HOMEPAGE_VAR_PBS_SECRET`.
+
+**AdGuard Home** (группа «Сеть»): запросы / блокировки / % фильтрации / задержка DNS.
+Логин-пароль веб-морды → `HOMEPAGE_VAR_ADGUARD_USER` / `HOMEPAGE_VAR_ADGUARD_PASSWORD`; поправить порт в `services.yaml` (TODO).
+
+**Контейнеры obshaga** (карточки Memos/Mortis/LinkStack): живой статус и CPU/RAM контейнеров.
+Ничего создавать не нужно: сокет rootless Podman проброшен в quadlet (`Volume=%t/podman/podman.sock:/var/run/docker.sock`), инстанс описан в `docker.yaml`. Требование — включённый `podman.socket` (user), гайд 06 этап 2.1.
+
+> После добавления секретов в env — `systemctl --user restart 00-homepage` (env читается только при старте; YAML-конфиги подхватываются на лету).
+
+### 2.6. Старт и проверка
 
 ```bash
 systemctl --user restart 00-homepage && systemctl --user status 00-homepage
