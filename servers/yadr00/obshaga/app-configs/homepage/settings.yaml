@@ -3,19 +3,23 @@
 title: HomeLab
 description: Панель управления домашним дата-центром
 language: ru
+
+# ---- Дизайн ----
 theme: dark
-color: slate
-headerStyle: clean
+color: indigo          # акцентный цвет карточек/ссылок
+headerStyle: boxed     # заголовок в рамке, компактнее clean
+cardBlur: md           # лёгкое размытие фона за карточками
+statusStyle: dot       # статусы контейнеров — точкой, не плашкой
 hideVersion: true
-statusStyle: dot
 
 # Раскладка групп (ключи = имена групп из services.yaml)
 layout:
   Инфраструктура:
     style: row
-    columns: 4
+    columns: 3
   Приложения:
     style: column
+    columns: 2
   Сеть:
-    style: column
+    style: row
     columns: 2

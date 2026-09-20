@@ -1,19 +1,5 @@
 # Закладки. Документация: https://gethomepage.dev/configs/bookmarks/
 
-- Документация:
-    - Homepage:
-        - abbr: HP
-          href: https://gethomepage.dev/
-    - Proxmox VE:
-        - abbr: PVE
-          href: https://pve.proxmox.com/pve-docs/
-    - Podman Quadlets:
-        - abbr: QD
-          href: https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html
-    - Caddy:
-        - icon: caddy.png
-          href: https://caddyserver.com/docs/
-
 - Git:
     - homelab-deploy:
         - abbr: HLD
@@ -21,3 +7,6 @@
     - GitHub:
         - abbr: GH
           href: https://github.com/AlexRus1234
+    - Codeberg:
+        - abbr: CB
+          href: https://codeberg.org/AlexRus1234

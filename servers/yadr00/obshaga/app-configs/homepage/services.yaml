@@ -1,14 +1,19 @@
 # Карточки сервисов. Документация: https://gethomepage.dev/configs/services/
 #
-# proxmoxNode — ключ из proxmox.yaml (имя ноды PVE), proxmoxVMID — гостя из PVE.
-# Строки с "TODO" раскомментировать и заполнить реальными VMID.
+# homepage читает РОВНО ОДИН services.yaml (split на каталоги версией 2.4.0 не
+# поддерживается — servicesFromConfig в исходниках). Разделение конфигурации —
+# по файлам самого homepage: settings / services / bookmarks / widgets / proxmox / docker.
+#
+# Иконки: *.png — dashboard-icons; имя без расширения — Lucide (квадратные, маленькие).
+# proxmoxNode — ключ из proxmox.yaml (имя ноды PVE, РЕГИСТР ВАЖЕН: YADR00 ≠ yadr00).
+
+# ============================ ИНФРАСТРУКТУРА ============================
 
 - Инфраструктура:
     - Proxmox VE (yadr00):
         icon: proxmox.png
         href: https://proxmox.yadr00.internal
         description: Гипервизор #1 — N100, 32 ГБ
-        # node: должно совпадать с hostname ноды PVE и ключом в proxmox.yaml
         widget:
           type: proxmox
           url: https://172.20.5.1:8006
@@ -39,7 +44,7 @@
         proxmoxNode: YADR00
         proxmoxVMID: 100
         proxmoxType: lxc
-        # репозитории / уведомления / issues / PR (токен scopes: repository, issue, notifications)
+        # репозитории / уведомления / issues / PR (scopes: repository, issue, notifications)
         widget:
           type: gitea
           url: http://172.20.5.2:3000
@@ -50,21 +55,13 @@
         description: SSO-провайдер — VM 102
         proxmoxNode: YADR00
         proxmoxVMID: 102
-    - Vaultwarden:
-        icon: vaultwarden.png
-        href: https://alpine-vaultwarden.yadr00.internal
-        description: Менеджер паролей
-        # proxmoxNode: YADR00
-        # proxmoxVMID: TODO VMID LXC Vaultwarden
-        # proxmoxType: lxc
     - Forgejo Runner:
-        abbr: CI
+        icon: git-branch
         href: https://git.yadr00.internal/AlexRus1234/homelab-deploy/actions
-        description: ВМ gitrunner (yadr01) — последние задачи Actions репо homelab-deploy
+        description: gitrunner (yadr01) — последние задачи Actions
         # proxmoxNode: yadr01
         # proxmoxVMID: TODO VMID ВМ gitrunner (по паспорту YADR01 — VM 106)
-        # Последние задачи CI: dynamic-list (имя workflow + статус), клик — на run в Forgejo.
-        # Ответ Forgejo: {"workflow_runs": [{name, status, run_number, ...}], "total_count": N}
+        # Ответ Forgejo: {"workflow_runs": [{name, status, run_number, ...}]}
         widget:
           type: customapi
           url: http://172.20.5.2:3000/api/v1/repos/AlexRus1234/homelab-deploy/actions/tasks
@@ -79,42 +76,32 @@
             limit: 5
             target: https://git.yadr00.internal/AlexRus1234/homelab-deploy/actions/runs/{run_number}
 
+# ============================== ПРИЛОЖЕНИЯ ==============================
+
 - Приложения:
-    - Общага (ВМ):
-        abbr: OB
-        href: https://homepage.obshaga.yadr00.internal
-        description: Эта ВМ (VM 115) — homepage, linkstack, memos, mortis
-        proxmoxNode: YADR00
-        proxmoxVMID: 115
     - Memos:
         icon: memos.png
         href: https://memos.obshaga.yadr00.internal
         description: Заметки — порт 10004
         server: obshaga
         container: memos
-    - Mortis:
-        abbr: MO
-        href: https://mortis.obshaga.yadr00.internal
-        description: Мост Memos API 0.21 для MoeMemos — порт 10005
-        server: obshaga
-        container: mortis
     - LinkStack:
-        abbr: LS
+        icon: linkstack.png
         href: https://linkstack.obshaga.yadr00.internal
         description: Мультиссылки — порт 10003
         server: obshaga
         container: systemd-03-linkstack
     - NORA:
-        abbr: NR
+        icon: package
         href: https://nora.panelka.yadr01.internal
         description: Artifact Registry (npm/go/oci) — порт 10001
         # proxmoxNode: yadr01
         # proxmoxVMID: TODO VMID ВМ panelka
     - Khrazhevnik:
-        abbr: KH
+        icon: hard-drive-download
         href: https://khrazhevnik.panelka.yadr01.internal
         description: Зеркало linux-репозиториев — порт 10002
-        # Статистика кеша из админ-API (:10003 → :30202, Bearer khz_-токен со scope admin)
+        # Статистика кеша из админ-API (:10003 → :30202, Bearer khz_-токен scope admin)
         widget:
           type: customapi
           url: http://172.20.6.9:10003/api/v1/cache/stats
@@ -134,7 +121,7 @@
             - field: upstream_errors
               label: Ошибок upstream
     - Khrazhevnik (раздачи):
-        abbr: KH
+        icon: history
         href: https://khrazhevnik.panelka.yadr01.internal
         description: Последние 10 клиентских раздач кеша (HIT/MISS/STALE)
         widget:
@@ -150,20 +137,20 @@
             label: status
             limit: 10
             target: https://khrazhevnik.panelka.yadr01.internal/{path}
+    - Khrazhevnik (админка):
+        icon: gauge
+        href: http://172.20.6.9:10003/ui/dashboard
+        description: Веб-панель управления зеркалом и кешем
+        siteMonitor: http://172.20.6.9:10003/healthz
     - SFTPGo:
-        abbr: SFTP
+        icon: lock
         href: https://sftpgo.yadr01.internal
         description: Файловое облако — LXC 106
         proxmoxNode: yadr01
         proxmoxVMID: 106
         proxmoxType: lxc
-    - Matrix:
-        icon: element.png
-        href: https://matrix.yadr01.internal
-        description: Synapse + Telegram-мост
-        # proxmoxNode: yadr01
-        # proxmoxVMID: TODO VMID LXC synapse
-        # proxmoxType: lxc
+
+# ================================= СЕТЬ =================================
 
 - Сеть:
     - AdGuard Home:
@@ -177,6 +164,6 @@
           username: "{{HOMEPAGE_VAR_ADGUARD_USER}}"
           password: "{{HOMEPAGE_VAR_ADGUARD_PASSWORD}}"
     - Step-CA:
-        abbr: CA
+        icon: shield
         href: https://172.20.0.1:9000/roots.pem
         description: УЦ зоны *.internal — корневой сертификат

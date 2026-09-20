@@ -119,8 +119,10 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:10000
 
 ## 3. TODO в конфигах (по мере желания)
 
-- `services.yaml` — закомментированные `proxmoxVMID`: LXC Vaultwarden, ВМ panelka, LXC synapse; порт веб-UI AdGuard на SHLZ00
+- `services.yaml` — закомментированные `proxmoxVMID`: ВМ panelka (карточка NORA), ВМ gitrunner (карточка Forgejo Runner); порт веб-UI AdGuard на SHLZ00 (href + url виджета)
 - `widgets.yaml` — координаты погоды (open-meteo, без API-ключа)
+
+> homepage читает ровно один `services.yaml` — split на несколько файлов версией 2.4.0 не поддерживается (проверено по исходникам). Разделение — по штатным файлам: settings / services / bookmarks / widgets / proxmox / docker.
 
 ## 4. Troubleshooting
 
