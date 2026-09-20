@@ -1,0 +1,21 @@
+# Глобальные настройки. Документация: https://gethomepage.dev/configs/settings/
+
+title: HomeLab
+description: Панель управления домашним дата-центром
+language: ru
+theme: dark
+color: slate
+headerStyle: clean
+hideVersion: true
+statusStyle: dot
+
+# Раскладка групп (ключи = имена групп из services.yaml)
+layout:
+  Инфраструктура:
+    style: row
+    columns: 4
+  Приложения:
+    style: column
+  Сеть:
+    style: column
+    columns: 2

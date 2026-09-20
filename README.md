@@ -48,6 +48,7 @@
 homelab-deploy/
 ├── .forgejo/
 │   └── workflows/
+│       ├── homepage-image-sync.yaml
 │       ├── mirror.yaml
 │       ├── yadr00-obshaga-webhook-deploy.yml
 │       ├── yadr00-deploy-intermasq.yml
@@ -108,15 +109,20 @@ homelab-deploy/
     ├── yadr00/
     │   └── obshaga/
     │       ├── sync-state.sh
-    │       ├── quadlets/
-    │       │   ├── 02-dashy.container
-    │       │   ├── 03-linkstack.container
+│           ├── quadlets/
+│           │   ├── 00-homepage.container
+│           │   ├── 03-linkstack.container
     │       │   ├── 04-memos.container
     │       │   ├── 05-mortis.container
     │       │   └── apps.network
     │       └── app-configs/
-    │           ├── dashy/
-    │           │   └── conf.yml
+│           ├── homepage/
+│           │   ├── settings.yaml
+│           │   ├── services.yaml
+│           │   ├── bookmarks.yaml
+│           │   ├── widgets.yaml
+│           │   ├── proxmox.yaml
+│           │   └── homepage.env.example
     │           └── memos/
     │               └── .keep
     │

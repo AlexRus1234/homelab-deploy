@@ -1,0 +1,16 @@
+# Подключения к Proxmox VE для статистики CPU/RAM на карточках (services.yaml).
+# Ключ блока = имя ноды PVE (Datacenter → Nodes) — на него ссылается proxmoxNode в services.yaml.
+# Документация: https://gethomepage.dev/configs/proxmox/
+#
+# Токен: пользователь homepage@pam, группа api-ro-users (readonly), без срока действия.
+# Самоподписанные сертификаты PVE не проблема — widget-запросы homepage не проверяют TLS.
+
+yadr00:
+  url: https://172.20.5.1:8006
+  token: homepage@pam!homepage
+  secret: "{{HOMEPAGE_VAR_PROXMOX_SECRET_YADR00}}"
+
+yadr01:
+  url: https://172.20.6.1:8006
+  token: homepage@pam!homepage
+  secret: "{{HOMEPAGE_VAR_PROXMOX_SECRET_YADR01}}"

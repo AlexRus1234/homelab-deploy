@@ -1,0 +1,33 @@
+[Unit]
+Description=Homepage Dashboard
+After=network-online.target
+
+[Container]
+Image=git.yadr00.internal/build/homepage:latest
+
+
+AutoUpdate=registry
+
+# Проброс порта 
+PublishPort=10000:3000
+
+# Конфиги YAML: app-configs/homepage/ → /opt/appdata/config/homepage/ (rsync в sync-state.sh).
+Volume=/opt/appdata/config/homepage:/app/config:Z
+
+# Разрешённый Host за reverse-proxy: без него middleware отдаёт 403
+Environment=HOMEPAGE_ALLOWED_HOSTS=homepage.obshaga.yadr00.internal
+
+# Секреты для подстановки {{HOMEPAGE_VAR_*}} в proxmox.yaml 
+EnvironmentFile=/opt/appdata/config/homepage/homepage.env
+
+# Next.js отвечает на / (в node:22-alpine есть busybox wget)
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1
+
+# Pomen 
+Label=Homepage
+Label=10000
+Label=proto-http
+
+[Install]
+#запускать контейнер при старте сессии пользователя
+WantedBy=default.target

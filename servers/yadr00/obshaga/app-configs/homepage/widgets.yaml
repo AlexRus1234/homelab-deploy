@@ -1,0 +1,36 @@
+# Информационные виджеты. Документация: https://gethomepage.dev/widgets/
+
+# CPU/RAM/диск/uptime самой ВМ obshaga (где работает контейнер homepage)
+- resources:
+    label: Общага
+    cpu: true
+    memory: true
+    disk: /
+    uptime: true
+    expanded: true
+
+- search:
+    provider: duckduckgo
+    focus: false
+    target: _blank
+
+- datetime:
+    text_size: xl
+    locale: ru-RU
+    format:
+      dateStyle: long
+      timeStyle: short
+      hourCycle: h23
+
+# Погода без API-ключа. TODO: подставить свои координаты
+- openmeteo:
+    label: Погода
+    latitude: 55.75
+    longitude: 37.62
+    timezone: Europe/Moscow
+    units: metric
+    cache: 15
+
+# Внешний IP (по данным Cloudflare)
+- resolved:
+    label: Внешний IP

@@ -1,0 +1,95 @@
+# Карточки сервисов. Документация: https://gethomepage.dev/configs/services/
+#
+# proxmoxNode — ключ из proxmox.yaml (имя ноды PVE), proxmoxVMID — гостя из PVE.
+# Строки с "TODO" раскомментировать и заполнить реальными VMID.
+
+- Инфраструктура:
+    - Proxmox VE (yadr00):
+        icon: proxmox.png
+        href: https://proxmox.yadr00.internal
+        description: Гипервизор #1 — N100, 32 ГБ
+    - Proxmox VE (yadr01):
+        icon: proxmox.png
+        href: https://proxmox.yadr01.internal
+        description: Гипервизор #2 — Ryzen 7 5800HS, 64 ГБ
+    - PBS:
+        icon: proxmox.png
+        href: https://pbs.yadr01.internal
+        description: Proxmox Backup Server — LXC 101
+        proxmoxNode: yadr01
+        proxmoxVMID: 101
+        proxmoxType: lxc
+    - Forgejo:
+        icon: forgejo.png
+        href: https://git.yadr00.internal
+        description: Git-сервер + реестр образов и пакетов — LXC 108
+        proxmoxNode: yadr00
+        proxmoxVMID: 108
+        proxmoxType: lxc
+    - Authentik:
+        icon: authentik.png
+        href: https://authentic.yadr00.internal
+        description: SSO-провайдер — VM 102
+        proxmoxNode: yadr00
+        proxmoxVMID: 102
+    - Vaultwarden:
+        icon: vaultwarden.png
+        href: https://alpine-vaultwarden.yadr00.internal
+        description: Менеджер паролей
+        # proxmoxNode: yadr00
+        # proxmoxVMID: TODO VMID LXC Vaultwarden
+        # proxmoxType: lxc
+
+- Приложения:
+    - Общага (ВМ):
+        abbr: OB
+        href: https://homepage.obshaga.yadr00.internal
+        description: Эта ВМ (VM 115) — homepage, linkstack, memos, mortis
+        proxmoxNode: yadr00
+        proxmoxVMID: 115
+    - Memos:
+        icon: memos.png
+        href: https://memos.obshaga.yadr00.internal
+        description: Заметки — порт 10004
+    - Mortis:
+        abbr: MO
+        href: https://mortis.obshaga.yadr00.internal
+        description: Мост Memos API 0.21 для MoeMemos — порт 10005
+    - LinkStack:
+        abbr: LS
+        href: https://linkstack.obshaga.yadr00.internal
+        description: Мультиссылки — порт 10003
+    - NORA:
+        abbr: NR
+        href: https://nora.panelka.yadr01.internal
+        description: Artifact Registry (npm/go/oci) — порт 10001
+        # proxmoxNode: yadr01
+        # proxmoxVMID: TODO VMID ВМ panelka
+    - Khrazhevnik:
+        abbr: KH
+        href: https://khrazhevnik.panelka.yadr01.internal
+        description: Зеркало linux-репозиториев — порт 10002
+    - SFTPGo:
+        abbr: SFTP
+        href: https://sftpgo.yadr01.internal
+        description: Файловое облако — LXC 106
+        proxmoxNode: yadr01
+        proxmoxVMID: 106
+        proxmoxType: lxc
+    - Matrix:
+        icon: element.png
+        href: https://matrix.yadr01.internal
+        description: Synapse + Telegram-мост
+        # proxmoxNode: yadr01
+        # proxmoxVMID: TODO VMID LXC synapse
+        # proxmoxType: lxc
+
+- Сеть:
+    - AdGuard Home:
+        icon: adguard-home.png
+        href: http://172.20.0.1:3000 # TODO: уточнить порт веб-интерфейса AdGuard на SHLZ00
+        description: DNS-фильтрация — роутер SHLZ00
+    - Step-CA:
+        abbr: CA
+        href: https://172.20.0.1:9000/roots.pem
+        description: УЦ зоны *.internal — корневой сертификат

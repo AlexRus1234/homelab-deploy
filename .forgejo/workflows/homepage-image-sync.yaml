@@ -1,0 +1,35 @@
+name: Зеркалирование образа homepage
+
+# Раз в неделю подтягиваем свежий ghcr.io/gethomepage/homepage:latest в реестр Forgejo
+# (multiarch сохраняется через --all). Дальше ВМ подхватывают образ сами:
+# podman auto-update — по пушу (sync-state.sh) и ночным таймером 03:00-04:00.
+on:
+  schedule:
+    - cron: '30 4 * * 1' # понедельник, 04:30 UTC
+  workflow_dispatch:
+
+jobs:
+  sync-image:
+    runs-on: docker
+    container:
+      image: docker.io/alpine:latest
+    steps:
+      - name: Зеркалирование ghcr.io → git.yadr00.internal
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          apk add --no-cache skopeo
+
+          echo "=== Загружаем корневой сертификат нашего CA (Step-CA) ==="
+          mkdir -p /certs
+          wget --no-check-certificate https://172.20.0.1:9000/roots.pem -O /certs/git.yadr00.internal.crt
+
+          echo "=== Логин в реестр Forgejo ==="
+          echo "$REGISTRY_TOKEN" | skopeo login git.yadr00.internal -u "$REGISTRY_USER" --password-stdin
+
+          echo "=== Копируем multiarch-образ ==="
+          skopeo copy --all --retry-times 3 \
+            --dest-cert-dir /certs \
+            docker://ghcr.io/gethomepage/homepage:latest \
+            docker://git.yadr00.internal/build/homepage:latest
