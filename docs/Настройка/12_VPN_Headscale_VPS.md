@@ -122,7 +122,9 @@ vpn.alexrus1234.ru {
 
 homer.alexrus1234.ru {
     reverse_proxy https://homer.yadr00.internal {
-        transport http { tls_insecure_skip_verify }
+        transport http {
+            tls_insecure_skip_verify
+        }
         header_up Host {upstream_hostport}
         header_up X-Real-IP {remote_host}
     }
@@ -130,22 +132,25 @@ homer.alexrus1234.ru {
 
 # LinkStack — публичная страница ссылок, админка снаружи закрыта
 link.alexrus1234.ru {
-    # Корень → страница пользователя @AlexRus1234
     @root path /
     rewrite @root /@AlexRus1234
 
-    # Логин/админка/инсталлятор недоступны из интернета (403);
-    # администрирование — только изнутри: linkstack.obshaga.yadr00.internal
     @deny path /admin* /dashboard* /install* /signup*
     respond @deny 403
 
     reverse_proxy https://linkstack.obshaga.yadr00.internal {
-        transport http { tls_insecure_skip_verify }
+        transport http {
+            tls_insecure_skip_verify
+        }
         header_up Host {upstream_hostport}
         header_up X-Real-IP {remote_host}
     }
 }
 ```
+
+> В Caddyfile `{` и `}` всегда на отдельной строке; однострочные блоки вида `transport http { tls_insecure_skip_verify }` — ошибка парсинга.
+
+LinkStack: корень отдаёт страницу `/@AlexRus1234`, пути `/admin*`, `/dashboard*`, `/install*`, `/signup*` — 403 (админка только изнутри: `linkstack.obshaga.yadr00.internal`).
 DNS: A-запись `link.alexrus1234.ru` → внешний IP VPS (как у остальных поддоменов `alexrus1234.ru`).
 ```bash
 sudo systemctl reload caddy
