@@ -12,7 +12,7 @@
 | Слой | Что | Где |
 | :--- | :--- | :--- |
 | Quadlet | `.container` с портом, HealthCmd, labels для Pomen | `servers/yadr00/obshaga/quadlets/01-element-web.container` |
-| Конфиг | `config.json` (тема, бренд; homeserver НЕ зашит) | `servers/yadr00/obshaga/app-configs/element-web/` |
+| Конфиг | `config.json` (тема, бренд, дефолтный сервер) | `servers/yadr00/obshaga/app-configs/element-web/` |
 | Образ | nginx-unprivileged + статика element-web из сборки репо | реестр Forgejo `Build/element-web` |
 
 Это чистая статика: Element ходит в Synapse **из браузера**, а не с сервера — серверной части нет.
@@ -26,7 +26,7 @@ Volume=/opt/appdata/config/element-web/config.json:/app/config.json:ro
 
 - `ELEMENT_WEB_PORT=8080` — envsubst-шаблон nginx образа; 8080 вместо дефолтного 80, чтобы не городить `Sysctl=net.ipv4.ip_unprivileged_port_start=80` (как у linkstack).
 - Входная точка образа (`18-load-element-modules.sh`) копирует `/app/config*.json` в `/tmp/element-web-config`, откуда nginx раздаёт их по пути `/config`. Смонтированный `config.json` просто перекрывает baked-сэмпл.
-- Homeserver в `config.json` намеренно не зашит (`default_server_config` отсутствует, `disable_custom_urls: false`): адрес сервера вводится вручную на экране входа — клик по ссылке сервера под полями логина.
+- Homeserver: `default_server_config` ОБЯЗАТЕЛЕН для этой сборки — без него app.tsx (`verifyServerConfiguration`) бросает `invalid_configuration_no_server` до экрана входа. Оставлен нейтральный дефолт `matrix.org` (как в config.sample образа); реальный сервер вводится вручную на экране входа (`disable_custom_urls: false`, клик по серверу под полями логина) — либо меняется одной строкой в `default_server_config`.
 
 Доставка — стандартный GitOps-конвейер: push → webhook → `sync-state.sh` → rsync → `podman auto-update`.
 
