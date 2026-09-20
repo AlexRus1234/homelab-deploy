@@ -61,7 +61,7 @@ nano /opt/appdata/config/homepage/homepage.env
 
 ### 2.4. API-токены Proxmox (для CPU/RAM на карточках)
 
-На **каждом** узле PVE (yadr00 и yadr01 — не кластеризованы), см. [gethomepage.dev/configs/proxmox](https://gethomepage.dev/configs/proxmox/):
+На **каждом** узле PVE (hostname нод: `YADR00` и `yadr01` — регистр важен; не кластеризованы), см. [gethomepage.dev/configs/proxmox](https://gethomepage.dev/configs/proxmox/):
 
 1. Datacenter → Permissions → **Groups** → Create: `api-ro-users`
 2. Add → **Group Permission**: Path `/`, Role `PVEAuditor`, Propagate ✓
@@ -70,9 +70,21 @@ nano /opt/appdata/config/homepage/homepage.env
 5. Add → **API Token Permission**: Path `/`, токен `homepage@pam!homepage`, Role `PVEAuditor`, Propagate ✓
 6. Секрет (UUID) показывается **один раз** → сразу в `homepage.env`:
    ```ini
-   HOMEPAGE_VAR_PROXMOX_SECRET_YADR00=<секрет с yadr00>
+   HOMEPAGE_VAR_PROXMOX_SECRET_YADR00=<секрет с YADR00>
    HOMEPAGE_VAR_PROXMOX_SECRET_YADR01=<секрет с yadr01>
    ```
+
+> [!WARNING] Шаг 5 обязателен и не заменяется шагами 2–3
+> При включённой Privilege Separation эффективные права токена = **пересечение** прав юзера и прав самого токена. Групповой роли `api-ro-users` недостаточно: без отдельной записи **API Token Permission** API отдаёт `403 Permission check failed`, а карточки/виджеты homepage остаются пустыми (подтверждено практикой 20.09.2026).
+
+Проверка токена с ВМ (кавычки именно такие — bash разворачивает `!` в двойных кавычках, `event not found`):
+
+```bash
+. /opt/appdata/config/homepage/homepage.env
+TOK='PVEAPIToken=homepage@pam!homepage='"$HOMEPAGE_VAR_PROXMOX_SECRET_YADR00"
+curl -sk -H "Authorization: $TOK" https://172.20.5.1:8006/api2/json/cluster/resources | head -c 200
+# ожидание: {"data":[{"node":"YADR00","status":"online",...  (для yadr01 — свой секрет и URL 172.20.6.1)
+```
 
 Имя `homepage@pam!homepage` уже прописано в `proxmox.yaml`. TLS PVE проверять не нужно — widget-запросы homepage идут с `rejectUnauthorized: false`.
 
