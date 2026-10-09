@@ -1,7 +1,7 @@
 # 09 — Forgejo: Git + CI/CD + SSO
 
 > Свой Git-сервер + Runner (Rootless Podman) + SSO через Authentik.
-> LXC `172.20.5.2` (CT 108) на YADR00. IP выдаётся статикой через Intermasq (по MAC). БД PostgreSQL на NAS (`172.20.50.10`).
+> LXC `172.20.5.2` (CT 100) на YADR00. IP выдаётся статикой через Intermasq (по MAC). БД PostgreSQL на NAS (`172.20.50.10`).
 
 ## Этап 1. Подготовка Proxmox (LXC)
 
@@ -153,7 +153,7 @@ ROOT_PATH = /var/lib/forgejo/log
 [security]
 INSTALL_LOCK = true
 PASSWORD_HASH_ALGO = pbkdf2_hi
-REVERSE_PROXY_TRUSTED_PROXIES = 172.20.0.1/16
+REVERSE_PROXY_TRUSTED_PROXIES = 172.20.0.0/16
 ```
 
 Безопасность (пароли в открытом виде):

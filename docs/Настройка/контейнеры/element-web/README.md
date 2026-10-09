@@ -34,7 +34,7 @@ Volume=/opt/appdata/config/element-web/config.json:/app/config.json:ro
 
 Цель инстанса — публичный клиент: чужие люди открывают, вводят **свой** homeserver на экране входа (`disable_custom_urls: false`). Внутренний `element.obshaga.yadr00.internal` чужим бесполезен (DNS + Step-CA только в LAN).
 
-Блок на VPS (схема mortis/homer из [12_VPN_Headscale_VPS.md](../../Инфраструктура/12_VPN_Headscale_VPS.md)):
+Блок на VPS (схема mortis/element из [12_VPN_Headscale_VPS.md](../../12_VPN_Headscale_VPS.md)):
 
 ```caddy
 element.alexrus1234.ru {

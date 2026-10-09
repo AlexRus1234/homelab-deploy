@@ -40,7 +40,7 @@
 | Vaultwarden | LXC | `172.20.5.6` | Менеджер паролей (из эп. 6; **планируется переделка**) |
 | `obshaga` | ВМ (VM 115) | `172.20.5.17` | Пользовательские сервисы (Homepage, LinkStack, Memos, Mortis) — GitOps |
 
-> Шаблон базовой ВМ (Arch, `Base`/VM 102-клоны) хранится на этом узле; из него разворачиваются ВМ `obshaga` и Authentik (а также клон для runner — но сам `gitrunner` живёт на [YADR01](YADR01_Proxmox.md)).
+> Шаблон базовой ВМ (Arch, `Base`, **VM 114**) хранится на этом узле; из него разворачиваются ВМ `obshaga` и Authentik (а также клон для runner — но сам `gitrunner` живёт на [YADR01](YADR01_Proxmox.md)).
 
 ---
 

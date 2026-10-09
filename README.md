@@ -6,6 +6,7 @@
 
 | Документ | Содержание |
 | :--- | :--- |
+| [`00_карта_железа_и_сервисов.md`](docs/Инфраструктура/00_карта_железа_и_сервисов.md) | Сводная карта всего: железо, адресация, гости гипервизоров, софт, домены, цепочки |
 | [`01_архитектура_и_сеть.md`](docs/Инфраструктура/01_архитектура_и_сеть.md) | Топология узлов, сетевая адресация, порты сервисов |
 | [`02_спецификация_вм.md`](docs/Инфраструктура/02_спецификация_вм.md) | Стандарт ВМ (диски, пользователи, PKI) |
 | [`03_gitops_агент.md`](docs/Инфраструктура/03_gitops_агент.md) | Pull-модель, Webhook, sync-state.sh |
@@ -38,7 +39,7 @@
 | 10 | [`10_Matrix_мессенджер.md`](docs/Настройка/10_Matrix_мессенджер.md) | Synapse + VPS/Coturn |
 | 11 | [`11_Authentik_SSO.md`](docs/Настройка/11_Authentik_SSO.md) | SSO через Podman Quadlets, интеграция с Proxmox |
 | 12 | [`12_VPN_Headscale_VPS.md`](docs/Настройка/12_VPN_Headscale_VPS.md) | Доступ из интернета, свой DERP, Split DNS |
-| 13 | [`13_Intermasq_менеджер_DNS.md`](docs/Настройка/13_Intermasq_менеджер_DNS.md) | Менеджер dnsmasq + авто-провижининг Proxmox |
+| 13 | [`13_Intermasq_менеджер_DNS.md`](docs/Настройка/13_Intermasq_менеджер_DNS.md) | Менеджер dnsmasq на SHLZ00 (исходники — репо `Intermasq`) |
 | 14 | [`14_SFTPGo_облако.md`](docs/Настройка/14_SFTPGo_облако.md) | Файловое облако поверх NAS: LXC, SSO (OIDC), SFTP |
 | 15 | [`15_PBS_сервер.md`](docs/Настройка/15_PBS_сервер.md) | PBS в LXC: datastore на SMB, GC/prune, бэкап самого PBS |
 
@@ -56,16 +57,20 @@ homelab-deploy/
 │       ├── yadr01-deploy-sftpgo.yml
 │       └── yadr01-panelka-webhook-deploy.yml
 │
+├── .gitattributes
 ├── .gitignore
 │
 ├── docs/
 │   ├── Инфраструктура/
+│   │   ├── 00_карта_железа_и_сервисов.md
 │   │   ├── 01_архитектура_и_сеть.md
 │   │   ├── 02_спецификация_вм.md
 │   │   ├── 03_gitops_агент.md
 │   │   ├── 04_доменная_схема.md
 │   │   ├── 05_доменные_имена.md
-│   │   └── 06_настройка_ВМ.md
+│   │   ├── 06_настройка_ВМ.md
+│   │   └── старое/
+│   │       └── 01_архитектура_и_сеть.md
 │   │
 │   ├── Узлы/
 │   │   ├── SHLZ00_роутер.md
@@ -91,12 +96,15 @@ homelab-deploy/
 │   │   ├── 15_PBS_сервер.md
 │   │   │
 │   │   └── контейнеры/
+│   │       ├── element-web/
+│   │       │   └── README.md
 │   │       └── homepage/
 │   │           └── README.md
-│
+│   │
 │   └── заметки/
 │       └── podman/
-│           └── 01-автообновление.md
+│           ├── 01-автообновление.md
+│           └── 02-версии-ldflags.md
 │
 ├── report/
 │   └── README.md
@@ -113,20 +121,24 @@ homelab-deploy/
     ├── yadr00/
     │   └── obshaga/
     │       ├── sync-state.sh
-│           ├── quadlets/
-│           │   ├── 00-homepage.container
-│           │   ├── 03-linkstack.container
+    │       ├── quadlets/
+    │       │   ├── 00-homepage.container
+    │       │   ├── 01-element-web.container
+    │       │   ├── 03-linkstack.container
     │       │   ├── 04-memos.container
     │       │   ├── 05-mortis.container
     │       │   └── apps.network
     │       └── app-configs/
-│           ├── homepage/
-│           │   ├── settings.yaml
-│           │   ├── services.yaml
-│           │   ├── bookmarks.yaml
-│           │   ├── widgets.yaml
-│           │   ├── proxmox.yaml
-│           │   └── homepage.env.example
+    │           ├── element-web/
+    │           │   └── config.json
+    │           ├── homepage/
+    │           │   ├── settings.yaml
+    │           │   ├── services.yaml
+    │           │   ├── bookmarks.yaml
+    │           │   ├── widgets.yaml
+    │           │   ├── docker.yaml
+    │           │   ├── proxmox.yaml
+    │           │   └── homepage.env.example
     │           └── memos/
     │               └── .keep
     │

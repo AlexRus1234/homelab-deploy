@@ -120,16 +120,6 @@ vpn.alexrus1234.ru {
     }
 }
 
-homer.alexrus1234.ru {
-    reverse_proxy https://homer.yadr00.internal {
-        transport http {
-            tls_insecure_skip_verify
-        }
-        header_up Host {upstream_hostport}
-        header_up X-Real-IP {remote_host}
-    }
-}
-
 # LinkStack — публичная страница ссылок, админка снаружи закрыта.
 # Проксируем напрямую в ВМ (как sftpgo/xir), Host НЕ подменяем:
 # LinkStack генерирует абсолютные ссылки по Host — с подменой на
@@ -196,7 +186,7 @@ sudo resolvectl dns tailscale0 172.20.0.1
 sudo resolvectl domain tailscale0 internal
 sudo resolvectl flush-caches
 
-resolvectl query homer.yadr00.internal   # проверка
+resolvectl query git.yadr00.internal   # проверка
 ```
 
 ---

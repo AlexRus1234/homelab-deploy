@@ -17,7 +17,7 @@
 | Секреты | `homepage.env` (в git — только `.example`), подстановка `{{HOMEPAGE_VAR_*}}` в YAML | на ВМ: `/opt/appdata/config/homepage/homepage.env` |
 | Образ | еженедельное зеркало ghcr.io → реестр Forgejo | `.forgejo/workflows/homepage-image-sync.yaml` |
 
-Доставка — стандартный GitOps-конвейер (см. [03_gitops_агент.md](../../Инфраструктура/03_gitops_агент.md)): push → webhook → `sync-state.sh` → rsync → `podman auto-update`.
+Доставка — стандартный GitOps-конвейер (см. [03_gitops_агент.md](../../../Инфраструктура/03_gitops_агент.md)): push → webhook → `sync-state.sh` → rsync → `podman auto-update`.
 
 Ключевые строки quadlet:
 ```ini
@@ -26,7 +26,7 @@ Environment=HOMEPAGE_ALLOWED_HOSTS=homepage.obshaga.yadr00.internal
 EnvironmentFile=/opt/appdata/config/homepage/homepage.env
 Volume=/opt/appdata/config/homepage:/app/config:Z
 ```
-`HOMEPAGE_ALLOWED_HOSTS` **обязателен** за reverse-proxy — middleware проверяет Host-заголовок и без него отдаёт 400.
+`HOMEPAGE_ALLOWED_HOSTS` **обязателен** за reverse-proxy — middleware проверяет Host-заголовок и без него отдаёт 403.
 
 ---
 
@@ -45,7 +45,7 @@ Workflow `homepage-image-sync.yaml` зеркалит multiarch-образ раз
 
 ### 2.2. Права на каталог конфигов (ВАЖНО)
 
-`/opt/appdata/config` — корень смонтированной ФС и должен принадлежать `app-runner` (этап 1.3 в [06_настройка_ВМ.md](../../Инфраструктура/06_настройка_ВМ.md)). Если он `root:root`, rsync **молча** не создаёт новые app-конфиги (код возврата скриптом не проверяется):
+`/opt/appdata/config` — корень смонтированной ФС и должен принадлежать `app-runner` (этап 1.3 в [06_настройка_ВМ.md](../../../Инфраструктура/06_настройка_ВМ.md)). Если он `root:root`, rsync **молча** не создаёт новые app-конфиги (код возврата скриптом не проверяется):
 
 ```bash
 ls -ld /opt/appdata/config        # проверка
