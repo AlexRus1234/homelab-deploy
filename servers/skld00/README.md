@@ -42,7 +42,8 @@
 
 - **CI** (`Build/lxc-build`, workflow `build-leap16-base`): сборка → проверка «образ с этим
   `git_sha` уже на складе?» (есть → зелёное завершение без работы) → `incus-loc image import
-  <incus.tar.xz> <rootfs.tar.xz> skld: --alias leap16-base --reuse` + properties.
+  <incus.tar.xz> <rootfs.tar.xz> skld: --alias leap16-base` + properties (без `--reuse`:
+  reuse-семантика удаляет прежний образ при совпадении алиасов — несовместимо с откатом).
   Подключение к складу — постоянный клиентский сертификат из секретов (см. «Доверие»).
 - **Хосты-потребители:** без шага импорта — `incus-loc launch skld:<alias> <имя>` тянет и
   кеширует образ сам.
