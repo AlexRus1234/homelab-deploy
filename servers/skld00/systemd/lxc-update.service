@@ -1,0 +1,21 @@
+# Ночной контур skld00: обновление пакетов внутри инстансов + уборка снапшотов и стоянок.
+# Ставится вместе с таймером — порядок установки и что смотреть в отчёте: services/README.md,
+# раздел «Ночное обновление пакетов».
+[Unit]
+Description=skld00: ночное обновление инстансов и уборка снапшотов (update.sh)
+Documentation=file:///opt/appdata/git-repo/servers/skld00/services/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/appdata/git-repo
+ExecStart=/bin/bash /opt/appdata/git-repo/servers/skld00/update.sh
+# Обновление пакетов плюс откат с проверками: с запасом, но не бесконечно.
+TimeoutStartSec=3h
+# Обновление не должно мешать сервисам: низкий приоритет и idle-класс ввода-вывода.
+Nice=10
+IOSchedulingClass=idle
+# Весь вывод уходит в journal под именем юнита; строки отчёта — /var/lib/lxc-update/status.
+StandardOutput=journal
+StandardError=journal

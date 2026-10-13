@@ -31,58 +31,15 @@
 # а только печатает, что сделала бы. Владелец снимает флаг, когда захочет включить автоматику.
 set -uo pipefail
 
-REPO_DIR=${REPO_DIR:-/opt/appdata/git-repo}
-SUB="$REPO_DIR/servers/skld00"
-BASE_ALIAS=${BASE_ALIAS:-leap16-base}
-OFF_FLAG=${OFF_FLAG:-/etc/lxc-automation.off}
-STATE_DIR=${STATE_DIR:-/var/lib/lxc-update}
-DRY_RUN=${DRY_RUN:-0}
-STARTED=$(date +%s)
-FAIL=0
+# Общие части контура — окружение (REPO_DIR/SUB/STATE_DIR/OFF_FLAG/DRY_RUN), отчёт
+# (`log`/`record`), разбор деклараций (`proj_scalars`/`proj_rest`/`declared`), метки времени
+# и маппинг uid (`host_owner`/`svc_user`/`svc_uid`) — живут в ./lib.sh: их же использует
+# ночной контур update.sh, дублировать не нужно.
+. "$(dirname "$0")/lib.sh"
+
 DATA_CHANGED=0
 
-log() { printf '%s %s\n' "$(date '+%F %T')" "$*"; }
-
-record() { # имя, действие, результат, подробности
-    mkdir -p "$STATE_DIR" 2>/dev/null || true
-    printf '%s\t%s\t%s\t%s\t%ss\n' "$1" "$2" "$3" "$4" \
-        "$(( $(date +%s) - STARTED ))" >> "$STATE_DIR/status" 2>/dev/null || true
-}
-
-# --- карта uid ---------------------------------------------------------------
-# Хостовая сторона uid сервиса: Hostid + (uid - Nsid) по записи uid из volatile.idmap.next.
-# NOT volatile.idmap.base: там лежит 0 (сторона пространства имён), хостовая база живёт
-# именно в volatile.idmap.next как Hostid (проверено на живом Incus: Hostid=100000 при uid 479
-# даёт владельца 100479, и сервис внутри пишет в такой датасет без ошибок).
-host_owner() {
-    local inst="$1" uid="$2" map entry nsid hostid range
-    map=$(incus-loc config get "$inst" volatile.idmap.next 2>/dev/null) || return 1
-    [ -n "$map" ] || return 1
-    while IFS= read -r entry; do
-        case "$entry" in *'"Isuid":true'*) ;; *) continue ;; esac
-        case "$entry" in *'"Isgid":true'*) continue ;; esac
-        nsid=$(printf '%s' "$entry"    | sed -n 's/.*"Nsid":\([0-9-]*\).*/\1/p')
-        hostid=$(printf '%s' "$entry"  | sed -n 's/.*"Hostid":\([0-9-]*\).*/\1/p')
-        range=$(printf '%s' "$entry"   | sed -n 's/.*"Maprange":\([0-9-]*\).*/\1/p')
-        [ -n "$nsid" ] && [ -n "$hostid" ] && [ -n "$range" ] || continue
-        if [ "$uid" -ge "$nsid" ] && [ "$uid" -lt "$((nsid + range))" ]; then
-            printf '%s\n' "$((hostid + uid - nsid))"
-            return 0
-        fi
-    done < <(printf '%s\n' "$map" | sed 's/},{/\n/g')
-    return 1
-}
-
-# Имя пользователя сервиса: ключ user.service_user, иначе имя пакета (наши -loc-пакеты
-# создают пользователя ровно с именем пакета).
-svc_user() {
-    local s
-    s=$(declared "$1" user.service_user)
-    [ -n "$s" ] && printf '%s\n' "$s" || declared "$1" user.package
-}
-
-# Фактический uid внутри инстанса (пакет создаёт пользователя при установке).
-svc_uid() { incus-loc exec "$1" -- id -u "$2" 2>/dev/null | tr -d '[:space:]' ; }
+# --- окружение ---------------------------------------------------------------
 
 # Владелец данных на хосте. Идемпотентно: если уже правильно — не трогает.
 data_prep() { # инстанс, датасет, uid сервиса
@@ -116,53 +73,10 @@ data_prep() { # инстанс, датасет, uid сервиса
 }
 
 # --- проекции декларации -----------------------------------------------------
-# Скалярные ключи блока `config:` (блок-скаляры — cloud-init.user-data, raw.idmap — пропускаем:
-# их правка требует recreate, и они попадают в проекцию «состав»).
-proj_scalars() {
-    # Скалярные ключи config: — те, что контур применяет живьём. Блочные значения (| и >)
-    # не скаляры: их пропускаем ГЛУБИНОЙ, а не одной переменной — внутри блока бывает
-    # вложенный блок (`content: |` внутри `cloud-init.user-data: |`), и на нём старый
-    # вариант сбрасывал пропуск, после чего `runcmd:` из user-data уезжал в скаляры
-    # (контур пытался бы `config set vl1 runcmd ""` — Incus такое отвергает).
-    awk '
-      /^config:[[:space:]]*$/ { c=1; next }
-      c && /^[^[:space:]]/     { c=0 }
-      !c { next }
-      NF == 0 { next }                        # пустая строка блок не закрывает (в YAML она его часть)
-      { match($0, /^[[:space:]]*/); ind=RLENGTH }
-      { while (top > 0 && ind <= stack[top]) top-- }
-      top > 0 { next }
-      /^[[:space:]]+[A-Za-z0-9._-]+:/ {
-        line=$0; sub(/^[[:space:]]+/, "", line)
-        key=line; sub(/:.*/, "", key)
-        val=line; sub(/^[^:]*:[[:space:]]*/, "", val)
-        sub(/[[:space:]]+#.*$/, "", val)      # хвостовой YAML-комментарий не часть значения
-        if (val ~ /^[|>]/) { stack[++top]=ind; next }
-        gsub(/"/, "", val); print key "=" val
-      }' "$1"
-}
-proj_rest() {
-    # Всё остальное в config: — состав (devices, блочные значения, raw.idmap). Блочные
-    # значения целиком входят в состав: правка user-data = правка состава → recreate.
-    awk '
-      /^config:[[:space:]]*$/ { c=1; print; next }
-      c && /^[^[:space:]]/     { c=0 }
-      !c { print; next }
-      NF == 0 { if (top > 0) print; next }    # пустая строка блок не закрывает, но входит в состав
-      { match($0, /^[[:space:]]*/); ind=RLENGTH }
-      { while (top > 0 && ind <= stack[top]) top-- }
-      top > 0 { print; next }
-      /^[[:space:]]+[A-Za-z0-9._-]+:/ {
-        rest=$0; sub(/^[[:space:]]+/, "", rest)
-        val=rest; sub(/^[^:]*:[[:space:]]*/, "", val)
-        if (val ~ /^[|>]/) { stack[++top]=ind }
-        next
-      }
-      { print }' "$1"
-}
-
-declared() { proj_scalars "$1" | awk -F= -v k="$2" '$1 == k { print substr($0, length(k) + 2); exit }'; }
-hash16() { sha256sum | cut -c1-16; }
+# `proj_scalars` (скаляры config: — применяются живьём) и `proj_rest` (состав: devices и
+# блочные значения, правка которых требует пересоздания) живут в ./lib.sh: там же разбор
+# ключей (`declared`), хеш (`hash16`) и метка возраста снапшотов. Здесь их нет специально —
+# одна реализация на весь контур.
 
 # --- проба живости -----------------------------------------------------------
 health_gate() { # инстанс, маркер загрузки, команда пробы
