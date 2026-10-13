@@ -36,6 +36,15 @@ config:
           autorefresh=0
           type=rpm-md
           gpgcheck=0
+      # ШАГ 2 РЕПЕТИЦИИ (2026-10-13): намеренно ломаем сервис — проба не пройдёт, и контур
+      # обязан откатить пересоздание. Уходит вместе с временной декларацией.
+      - path: /etc/systemd/system/victorialogs-loc.service.d/zz-rehearsal-break.conf
+        permissions: '0644'
+        content: |
+          # Репетиция: сервис стартует и сразу падает — юнит «поднялся», но unhealthy.
+          [Service]
+          ExecStart=
+          ExecStart=/bin/false
     runcmd:
       - |
         set -euo pipefail
@@ -55,6 +64,7 @@ config:
         zypper --non-interactive install -y --no-recommends victorialogs-loc
         rpm -q victorialogs-loc >/dev/null
         systemctl enable victorialogs-loc.service >/dev/null
+        systemctl daemon-reload
         echo "rehearsal: пакет установлен, юнит включён (uid $(id -u victorialogs-loc))"
 
 devices:
