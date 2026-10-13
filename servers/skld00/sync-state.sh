@@ -38,4 +38,7 @@ echo "=== Изменения в $SUBTREE: $OLD_HASH -> $NEW_HASH"
 echo "--- изменённые файлы:"
 git diff --name-status "$OLD_HASH" "$NEW_HASH" -- "$SUBTREE/"
 
-exec "$REPO_DIR/$SUBTREE/reconcile.sh" "$OLD_HASH" "$NEW_HASH"
+# Дальше — хостовый контур. Запускаем через /bin/bash явно: агент не должен зависеть
+# от бита исполняемости в репозитории (у моего git core.fileMode=false, и +x легко
+# не попадает в коммит — на узле это давало «Permission denied» и 500 от webhook).
+exec /bin/bash "$REPO_DIR/$SUBTREE/reconcile.sh" "$OLD_HASH" "$NEW_HASH"
