@@ -13,7 +13,8 @@
 #          резервация на роутере (MAC → 172.20.50.100) переживает пересоздание инстанса.
 #          Профильное `eth0` (бридж incusbr0) перебито одноимённым устройством инстанса.
 #   eth1 — прямой линк skld00↔yadr01 (карта enp8s0, пир 172.21.6.250): статика из
-#          user-data, без шлюза — DHCP-сервера на линке нет.
+#          user-data, без шлюза — DHCP-сервера на линке нет. Последний байт адреса — тот же,
+#          что в LAN (`172.20.50.100` ↔ `172.21.6.100`): у сервиса одна схема адресации.
 name: vm1
 description: "VictoriaMetrics single-node (victoriametrics-loc): приём и хранение метрик"
 
@@ -57,7 +58,7 @@ config:
           Name=eth1
 
           [Network]
-          Address=172.21.6.102/24
+          Address=172.21.6.100/24
     runcmd:
       - |
         set -euo pipefail
@@ -71,8 +72,8 @@ config:
           || { echo "LAN (eth0): адрес по DHCP не пришёл за 40 с"; exit 1; }
         networkctl reload >/dev/null 2>&1 || true
         networkctl reconfigure eth1 >/dev/null 2>&1 || true
-        ip -4 -o addr show dev eth1 2>/dev/null | grep -q '172\.21\.6\.102' \
-          || { echo "линк (eth1): адрес 172.21.6.102 не поднялся"; exit 1; }
+        ip -4 -o addr show dev eth1 2>/dev/null | grep -q '172\.21\.6\.100' \
+          || { echo "линк (eth1): адрес 172.21.6.100 не поднялся"; exit 1; }
         # Только пакет и включение юнита: запуск делает хостовый контур после chown
         # датасета (внутри контейнера владельца примонтированного датасета не сменить).
         test -f /etc/pki/trust/anchors/step-ca.crt
