@@ -4,7 +4,16 @@
 # и разбирается хостовым контуром: servers/skld00/reconcile.sh
 #
 # Данные — заранее созданный датасет `tank/vm-data` (recordsize=16K под мелкие
-# случайные записи метрик). Пара id-маппинга 478↔478 — правило узла (см. services/README.md).
+# случайные записи метрик), владельца датасета (100000+uid) ставит хостовый контур
+# до запуска сервиса — см. services/README.md.
+#
+# Сеть (замерено на живом Incus 2026-10-13): два macvlan-плеча на физических картах узла.
+#   eth0 — LAN, адрес по DHCP от роутера (имя `eth0` подхватывает запёкшийся в базе
+#          eth0.network с DHCP=ipv4 и ClientIdentifier=mac), MAC объявлен константой →
+#          резервация на роутере (MAC → 172.20.50.102) переживает пересоздание инстанса.
+#          Профильное `eth0` (бридж incusbr0) перебито одноимённым устройством инстанса.
+#   eth1 — прямой линк skld00↔yadr01 (карта enp8s0, пир 172.21.6.250): статика из
+#          user-data, без шлюза — DHCP-сервера на линке нет.
 name: vm1
 description: "VictoriaMetrics single-node (victoriametrics-loc): приём и хранение метрик"
 
@@ -14,6 +23,7 @@ config:
   limits.memory: 4GiB
 
   # --- политика для хостового контура ---
+  user.managed-by: homelab-deploy/skld00     # маркер: без него контур инстанс не трогает и не снимает
   user.role: victoriametrics
   user.package: victoriametrics-loc
   user.update_policy: inplace          # историю метрик сохраняем, меняются версии пакетов
@@ -39,9 +49,30 @@ config:
           autorefresh=0
           type=rpm-md
           gpgcheck=0
+      - path: /etc/systemd/network/20-eth1.network
+        permissions: '0644'
+        content: |
+          # Прямой линк skld00 <-> yadr01: статика, шлюза нет (пир 172.21.6.250 на линке же).
+          [Match]
+          Name=eth1
+
+          [Network]
+          Address=172.21.6.102/24
     runcmd:
       - |
         set -euo pipefail
+        # Сеть: LAN-плечо — DHCP (запёкшийся файл образа), линк — статика. Ждём LAN-адрес
+        # ограниченно: без него не дойти до Хражевника, и «поставить пакет в пустоту» нельзя.
+        for i in $(seq 1 20); do
+          ip -4 -o addr show dev eth0 2>/dev/null | grep -q ' inet ' && break
+          sleep 2
+        done
+        ip -4 -o addr show dev eth0 2>/dev/null | grep -q ' inet ' \
+          || { echo "LAN (eth0): адрес по DHCP не пришёл за 40 с"; exit 1; }
+        networkctl reload >/dev/null 2>&1 || true
+        networkctl reconfigure eth1 >/dev/null 2>&1 || true
+        ip -4 -o addr show dev eth1 2>/dev/null | grep -q '172\.21\.6\.102' \
+          || { echo "линк (eth1): адрес 172.21.6.102 не поднялся"; exit 1; }
         # Только пакет и включение юнита: запуск делает хостовый контур после chown
         # датасета (внутри контейнера владельца примонтированного датасета не сменить).
         test -f /etc/pki/trust/anchors/step-ca.crt
@@ -54,9 +85,24 @@ config:
         zypper --non-interactive install -y --no-recommends victoriametrics-loc
         rpm -q victoriametrics-loc >/dev/null
         systemctl enable victoriametrics-loc.service >/dev/null
-        echo "vm1: пакет установлен, юнит включён (uid $(id -u victoriametrics-loc))"
+        echo "vm1: сеть поднята ($(ip -4 -o addr show dev eth0 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth1 | awk '{print $4}' | head -1)), пакет установлен, юнит включён (uid $(id -u victoriametrics-loc))"
 
 devices:
+  # LAN-плечо: macvlan на физической карте узла (см. комментарий в шапке). Адрес — по DHCP,
+  # в декларации его нет: macvlan ключ ipv4.address не принимает (замерено).
+  eth0:
+    type: nic
+    nictype: macvlan
+    parent: enp7s0
+    name: eth0
+    hwaddr: "02:76:6d:00:00:02"
+  # Линк до yadr01: та же механика на второй карте, адрес — статикой из user-data.
+  eth1:
+    type: nic
+    nictype: macvlan
+    parent: enp8s0
+    name: eth1
+    hwaddr: "02:76:6d:01:00:02"
   data:
     type: disk
     source: /tank/vm-data

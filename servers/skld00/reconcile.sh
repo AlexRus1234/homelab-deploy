@@ -18,6 +18,8 @@
 #     create по новой декларации → проба; при провале — вернуть старый инстанс и zfs rollback.
 #     Откат опирается на сам инстанс, а не на старую декларацию: она могла устареть
 #     (сменилась база, версия пакета уехала), а работавший инстанс — нет.
+#   * декларация исчезла из git → инстанс снимается (снапшот данных, данные остаются на
+#     диске). Снимается только инстанс с маркером `user.managed-by` — чужие не трогаются.
 #   * `reconcile.sh --recreate <имя>` — принудительная пересборка инстанса по текущей декларации.
 #
 # Почему uid читается, а не объявляется: наши `-loc`-пакеты создают пользователя через
@@ -117,39 +119,44 @@ data_prep() { # инстанс, датасет, uid сервиса
 # Скалярные ключи блока `config:` (блок-скаляры — cloud-init.user-data, raw.idmap — пропускаем:
 # их правка требует recreate, и они попадают в проекцию «состав»).
 proj_scalars() {
+    # Скалярные ключи config: — те, что контур применяет живьём. Блочные значения (| и >)
+    # не скаляры: их пропускаем ГЛУБИНОЙ, а не одной переменной — внутри блока бывает
+    # вложенный блок (`content: |` внутри `cloud-init.user-data: |`), и на нём старый
+    # вариант сбрасывал пропуск, после чего `runcmd:` из user-data уезжал в скаляры
+    # (контур пытался бы `config set vl1 runcmd ""` — Incus такое отвергает).
     awk '
       /^config:[[:space:]]*$/ { c=1; next }
       c && /^[^[:space:]]/     { c=0 }
-      c {
-        match($0, /^[[:space:]]+/); ind=RLENGTH
-        if (skip && ind <= skipind) skip=0
-        if (skip) next
-        if ($0 ~ /^[[:space:]]+[A-Za-z0-9._-]+:/) {
-          line=$0; sub(/^[[:space:]]+/, "", line)
-          key=line; sub(/:.*/, "", key)
-          val=line; sub(/^[^:]*:[[:space:]]*/, "", val)
-          sub(/[[:space:]]+#.*$/, "", val)      # хвостовой YAML-комментарий не часть значения
-          if (val ~ /^[|>]/) { skip=1; skipind=ind; next }
-          gsub(/"/, "", val); print key "=" val
-        }
+      !c { next }
+      NF == 0 { next }                        # пустая строка блок не закрывает (в YAML она его часть)
+      { match($0, /^[[:space:]]*/); ind=RLENGTH }
+      { while (top > 0 && ind <= stack[top]) top-- }
+      top > 0 { next }
+      /^[[:space:]]+[A-Za-z0-9._-]+:/ {
+        line=$0; sub(/^[[:space:]]+/, "", line)
+        key=line; sub(/:.*/, "", key)
+        val=line; sub(/^[^:]*:[[:space:]]*/, "", val)
+        sub(/[[:space:]]+#.*$/, "", val)      # хвостовой YAML-комментарий не часть значения
+        if (val ~ /^[|>]/) { stack[++top]=ind; next }
+        gsub(/"/, "", val); print key "=" val
       }' "$1"
 }
-
-# Всё остальное: состав (devices, профиль, блок-скаляры с их содержимым).
 proj_rest() {
+    # Всё остальное в config: — состав (devices, блочные значения, raw.idmap). Блочные
+    # значения целиком входят в состав: правка user-data = правка состава → recreate.
     awk '
       /^config:[[:space:]]*$/ { c=1; print; next }
       c && /^[^[:space:]]/     { c=0 }
-      c {
-        match($0, /^[[:space:]]+/); ind=RLENGTH
-        if (skip && ind <= skipind) skip=0
-        if (skip) { print; next }
-        if ($0 ~ /^[[:space:]]+[A-Za-z0-9._-]+:/) {
-          line=$0; sub(/^[[:space:]]+/, "", line)
-          val=line; sub(/^[^:]*:[[:space:]]*/, "", val)
-          if (val ~ /^[|>]/) { skip=1; skipind=ind }
-          next
-        }
+      !c { print; next }
+      NF == 0 { if (top > 0) print; next }    # пустая строка блок не закрывает, но входит в состав
+      { match($0, /^[[:space:]]*/); ind=RLENGTH }
+      { while (top > 0 && ind <= stack[top]) top-- }
+      top > 0 { print; next }
+      /^[[:space:]]+[A-Za-z0-9._-]+:/ {
+        rest=$0; sub(/^[[:space:]]+/, "", rest)
+        val=rest; sub(/^[^:]*:[[:space:]]*/, "", val)
+        if (val ~ /^[|>]/) { stack[++top]=ind }
+        next
       }
       { print }' "$1"
 }
@@ -301,6 +308,64 @@ recreate_instance() { # имя, файл-декларация, датасет, �
     return 1
 }
 
+# --- снятие инстансов, чьи декларации удалены из git -------------------------
+# Правило узла (то же, что у агента на ВМ): декларация исчезла из git → инстанс на узле
+# снимается. Отличия от ВМ: снимаем только инстанс с нашим маркером (user.managed-by) —
+# у Incus инстансы лежат в одном пространстве имён, и без маркера легко снести чужое;
+# и ПЕРЕД снятием делаем снапшот датасета: данные остаются на диске, сам датасет не удаляем.
+MANAGED_BY="homelab-deploy/skld00"
+remove_orphans() { # старый-хеш, новый-хеш
+    local old="${1:-}" new="${2:-}" deleted f name marker ds out
+    if [ -n "$RECREATE_ONLY" ]; then
+        return 0          # режим --recreate: снятием не занимаемся
+    fi
+    if [ -z "$old" ] || [ -z "$new" ]; then
+        log "снятие: git-хеши не переданы (ручной прогон) — декларации не пересматриваю"
+        return 0
+    fi
+    if ! deleted=$(git -C "$REPO_DIR" diff --name-only --diff-filter=D "$old" "$new" -- servers/skld00/services/ 2>/dev/null); then
+        log "снятие: git diff не сработал (нет репозитория?) — пропускаю"
+        return 0
+    fi
+    [ -n "$deleted" ] || return 0
+    while IFS= read -r f; do
+        case "$f" in servers/skld00/services/*.yaml) ;; *) continue ;; esac
+        name=$(basename "$f" .yaml)
+        [ "$name" = "README" ] && continue
+        if ! incus-loc info "$name" >/dev/null 2>&1; then
+            log "снятие: декларация $f удалена, инстанса $name нет — нечего снимать"
+            continue
+        fi
+        marker=$(incus-loc config get "$name" user.managed-by 2>/dev/null | tr -d '\r' || true)
+        if [ "$marker" != "$MANAGED_BY" ]; then
+            log "снятие: $name есть, но маркера контура нет (user.managed-by='$marker') — НЕ трогаю"
+            record "$name" "delete" "пропуск" "нет маркера $MANAGED_BY"
+            continue
+        fi
+        ds=$(incus-loc config get "$name" user.data_dataset 2>/dev/null | tr -d '\r' || true)
+        if [ "$DRY_RUN" = 1 ]; then
+            log "сделал бы: снапшот ${ds:-—} → stop → delete $name (декларация $f удалена из git; данные остались бы на диске)"
+            continue
+        fi
+        if [ -n "$ds" ] && zfs list -H -o name "$ds" >/dev/null 2>&1; then
+            if zfs snapshot "${ds}@removed-$(date +%Y%m%d-%H%M%S)"; then
+                log "данные: снапшот ${ds}@removed-… (страховка перед снятием; сам датасет не трогаю)"
+            else
+                log "ВНИМАНИЕ: снапшот $ds не снялся — снимаю инстанс всё равно, данные остаются на диске"
+            fi
+        fi
+        incus-loc stop "$name" >/dev/null 2>&1 || true
+        if out=$(incus-loc delete "$name" 2>&1); then
+            log "инстанс $name снят (декларация $f удалена из git); данные остались в ${ds:-—}"
+            record "$name" "delete" "ok" "декларация удалена из git: инстанс снят, данные остались в ${ds:-—}"
+        else
+            log "ОШИБКА: не удалось снять $name: $(printf '%s' "$out" | tail -1)"
+            record "$name" "delete" "провал" "$(printf '%s' "$out" | tail -1)"
+            FAIL=1
+        fi
+    done <<< "$deleted"
+}
+
 # --- окружение ---------------------------------------------------------------
 RECREATE_ONLY=""
 if [ "${1:-}" = "--recreate" ]; then
@@ -318,9 +383,10 @@ fi
 [ "$DRY_RUN" = 1 ] && log "режим: отчёт (dry-run)"
 
 shopt -s nullglob
+remove_orphans "${1:-}" "${2:-}"        # декларации, удалённые из git → снять инстансы
 files=("$SUB"/services/*.yaml)
 if [ ${#files[@]} -eq 0 ]; then
-    log "деклараций нет (services/*.yaml) — делать нечего"
+    log "деклараций нет (services/*.yaml) — применять нечего"
     exit 0
 fi
 
