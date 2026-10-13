@@ -7,11 +7,19 @@
 #   * данные: владельца датасета выставляет в ХОСТОВОЙ номер, соответствующий uid сервиса
 #     внутри контейнера (у нас 100000+uid). Число не хардкодится, а считается из живой карты
 #     инстанса — см. host_owner ниже;
-#   * создаёт отсутствующий инстанс: create → владелец данных → start → ожидание cloud-init
-#     → health-gate (маркер загрузки → systemd → проба сервиса из user.healthcheck);
+#   * создаёт инстанс: create → start → ждёт cloud-init (он ставит пакет и включает юнит)
+#     → читает ФАКТИЧЕСКИЙ uid сервиса из инстанса → выставляет владельца датасета
+#     в хостовой номер (Hostid+uid из карты инстанса) → запускает юнит → health-gate;
+#   * данные проверяет на каждом прогоне: если владелец разъехался — возвращает (самопочинка)
+#     и перезапускает юнит, который из-за этого мог не подняться;
 #   * применяет живьём скалярные ключи `config:` (limits.*, user.*) через `incus config set`;
 #   * если менялся СОСТАВ (devices, raw.idmap, cloud-init.user-data) — ничего не трогает
 #     и сообщает, что нужен recreate (путь recreate со снапшотом тома — следующий шаг).
+#
+# Почему uid читается, а не объявляется: наши `-loc`-пакеты создают пользователя через
+# `sysusers.d` БЕЗ номера, и номер зависит от состояния /etc/passwd в контейнере. Замерено:
+# запрошенный в декларации 479 был занят, sysusers выдал 478, и жёсткий чек уронил cloud-init.
+# Номер, который выдала система, — единственный, от которого можно считать владельца данных.
 #
 # Отладочный этап: пока существует /etc/lxc-automation.off, автоматика ничего не меняет,
 # а только печатает, что сделала бы. Владелец снимает флаг, когда захочет включить автоматику.
@@ -25,6 +33,7 @@ STATE_DIR=${STATE_DIR:-/var/lib/lxc-update}
 DRY_RUN=${DRY_RUN:-0}
 STARTED=$(date +%s)
 FAIL=0
+DATA_CHANGED=0
 
 log() { printf '%s %s\n' "$(date '+%F %T')" "$*"; }
 
@@ -58,9 +67,21 @@ host_owner() {
     return 1
 }
 
+# Имя пользователя сервиса: ключ user.service_user, иначе имя пакета (наши -loc-пакеты
+# создают пользователя ровно с именем пакета).
+svc_user() {
+    local s
+    s=$(declared "$1" user.service_user)
+    [ -n "$s" ] && printf '%s\n' "$s" || declared "$1" user.package
+}
+
+# Фактический uid внутри инстанса (пакет создаёт пользователя при установке).
+svc_uid() { incus-loc exec "$1" -- id -u "$2" 2>/dev/null | tr -d '[:space:]' ; }
+
 # Владелец данных на хосте. Идемпотентно: если уже правильно — не трогает.
 data_prep() { # инстанс, датасет, uid сервиса
     local inst="$1" ds="$2" uid="$3" hostmp want have
+    DATA_CHANGED=0
     [ -n "$ds" ] || return 0
     if ! zfs list -H -o name "$ds" >/dev/null 2>&1; then
         log "ОШИБКА: нет датасета $ds — его создаёт владелец (см. services/README.md)"
@@ -81,6 +102,7 @@ data_prep() { # инстанс, датасет, uid сервиса
     fi
     if chown "$want:$want" "$hostmp"; then
         log "данные: владелец $hostmp: $have -> $want (хостовая сторона uid $uid)"
+        DATA_CHANGED=1
         return 0
     fi
     log "ОШИБКА: не смог сменить владельца $hostmp на $want"
@@ -153,7 +175,10 @@ health_gate() { # инстанс, маркер загрузки, команда 
         if incus-loc exec "$inst" -- /usr/local/sbin/lxc-healthcheck --command "$hc" --tries 60 --delay 2; then
             log "проба сервиса прошла"
         else
-            log "НЕЗДОРОВ: проба сервиса не прошла"; return 1
+            log "НЕЗДОРОВ: проба сервиса не прошла"
+            log "--- хвост cloud-init-output.log (последние 15 строк):"
+            incus-loc exec "$inst" -- tail -15 /var/log/cloud-init-output.log 2>/dev/null | sed 's/^/    /' || true
+            return 1
         fi
     fi
     return 0
@@ -180,21 +205,24 @@ mkdir -p "$STATE_DIR/applied" 2>/dev/null || true
 
 for f in "${files[@]}"; do
     name=$(basename "$f" .yaml)
+    pkg=$(declared "$f" user.package)
+    user=$(svc_user "$f")
+    unit="${pkg}.service"
     ds=$(declared "$f" user.data_dataset)
-    uid=$(declared "$f" user.service_uid)
+    uid=""
     hc=$(declared "$f" user.healthcheck)
     marker=$(declared "$f" user.boot_marker)
     applied="$STATE_DIR/applied/$name"
     h_rest=$(proj_rest "$f" | hash16)
     h_scal=$(proj_scalars "$f" | hash16)
-    log "--- $name (декларация: состав $h_rest, скаляры $h_scal)"
+    log "--- $name (пакет $pkg, пользователь $user; декларация: состав $h_rest, скаляры $h_scal)"
 
     # ---------------------------------------------------------------- создание
     if ! incus-loc info "$name" >/dev/null 2>&1; then
         if [ "$DRY_RUN" = 1 ]; then
             log "сделал бы: incus-loc create $BASE_ALIAS $name < $f"
-            log "        затем: владелец $ds (Hostid+uid из карты инстанса) → incus-loc start"
-            log "        затем: cloud-init status --wait и health-gate"
+            log "        затем: start → ждать cloud-init (ставит пакет) → прочитать uid из инстанса"
+            log "        затем: chown $ds в хост-номер (Hostid+uid) → systemctl start $unit → health-gate"
             continue
         fi
         # create, а не launch: карта uid выделяется ПРИ СОЗДАНИИ, и без неё нельзя
@@ -220,10 +248,28 @@ for f in "${files[@]}"; do
             FAIL=1; continue
         fi
         incus-loc exec "$name" -- cloud-init status --wait >/dev/null 2>&1 \
-            || log "ВНИМАНИЕ: cloud-init завершился с ошибкой (решает проба сервиса)"
+            || log "ВНИМАНИЕ: cloud-init завершился с ошибкой — смотри строки ниже"
+        # uid читаем у факта: пакет создал пользователя при установке
+        uid=$(svc_uid "$name" "$user")
+        if [ -z "$uid" ]; then
+            log "ОШИБКА: в инстансе нет пользователя $user — значит пакет не установился"
+            log "--- хвост cloud-init-output.log:"
+            incus-loc exec "$name" -- tail -15 /var/log/cloud-init-output.log 2>/dev/null | sed 's/^/    /' || true
+            record "$name" "create" "провал" "нет пользователя $user"
+            log "    чистая попытка: incus-loc delete $name --force, затем повторить прогон"
+            FAIL=1; continue
+        fi
+        log "uid сервиса в инстансе: $uid"
+        if ! data_prep "$name" "$ds" "$uid"; then
+            record "$name" "create" "провал" "данные: $ds"; FAIL=1; continue
+        fi
+        if ! out=$(incus-loc exec "$name" -- systemctl start "$unit" 2>&1); then
+            err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
+            log "ВНИМАНИЕ: не удалось запустить $unit: $err (решает проба ниже)"
+        fi
         if health_gate "$name" "$marker" "$hc"; then
             printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
-            record "$name" "create" "ok" "инстанс создан из $BASE_ALIAS"
+            record "$name" "create" "ok" "инстанс создан из $BASE_ALIAS, uid $uid"
         else
             record "$name" "create" "провал" "health-gate"
             log "инстанс $name создан, но проверку не прошёл: разбираться (delete --force и прогон заново)"
@@ -234,8 +280,19 @@ for f in "${files[@]}"; do
 
     # ------------------------------------------------------- уже существует
     # данные проверяем на каждом прогоне: владелец мог разъехаться (пересоздание,
-    # переезд, смена карты) — это самопочинка, а не разовая настройка
-    data_prep "$name" "$ds" "$uid" || { record "$name" "apply" "провал" "данные: $ds"; FAIL=1; }
+    # переезд, смена карты) — это самопочинка, а не разовая настройка.
+    # uid читаем у факта; не прочитался (пакет снят) — данные не трогаем, решает проба
+    uid=$(svc_uid "$name" "$user")
+    if [ -n "$uid" ]; then
+        data_prep "$name" "$ds" "$uid" || { record "$name" "apply" "провал" "данные: $ds"; FAIL=1; }
+        if [ "$DATA_CHANGED" = 1 ] && [ "$DRY_RUN" = 0 ]; then
+            log "владелец данных изменился — перезапускаю $unit (сервис мог не подняться из-за прав)"
+            incus-loc exec "$name" -- systemctl try-restart "$unit" >/dev/null 2>&1 \
+                || log "ВНИМАНИЕ: не удалось перезапустить $unit"
+        fi
+    else
+        log "ВНИМАНИЕ: в инстансе нет пользователя $user — владельца данных не проверяю"
+    fi
 
     # записи может не быть, если предыдущее создание упало (инстанс остался жить) —
     # тогда «раз инстанс есть, значит всё хорошо» доверять нельзя: проверяем пробой

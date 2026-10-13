@@ -24,14 +24,11 @@ config:
   user.healthcheck: "curl -fsS --max-time 5 http://127.0.0.1:9428/health >/dev/null && systemctl is-active --quiet victorialogs-loc"
   user.data_dataset: tank/vl-data
   user.data_mountpoint: /var/lib/victorialogs-loc
-  user.service_uid: "479"
 
-  # uid сервиса внутри нужен, чтобы хостовая сторона была предсказуемой: владельцем датасета
-  # на хосте должен быть 100000+uid, и это число контур вычисляет сам из карты инстанса
-  # (services/README.md, «Правило id-маппинга»). Пара `raw.idmap` НЕ нужна — дефолтный
-  # маппинг контейнера уже переводит uid 479 в 100479, достаточно правильного владельца.
-  # root внутри контейнера при этом остаётся 100000 на хосте, не 0.
-  # (ключ raw.idmap сознательно отсутствует — см. выше)
+  # uid сервиса НЕ объявляется: номер, который выдал пакет, контур читает из инстанса
+  # (`id -u victorialogs-loc`) и от него считает хозяина данных на хосте (100000+uid).
+  # Объявлять номер нельзя — пакет создаёт пользователя через sysusers.d без номера,
+  # и замерено: запрошенный 479 был занят, система выдала 478.
 
   cloud-init.user-data: |
     #cloud-config
@@ -51,44 +48,23 @@ config:
     runcmd:
       - |
         set -euo pipefail
-        # 1. uid сервиса фиксируем САМИ до установки пакета: пакет создаёт пользователя
-        #    без номера (`u victorialogs-loc - ...`), и sysusers выделил бы первый свободный.
-        #    Пара raw.idmap в декларации требует известного номера, поэтому объявляем его
-        #    явно — тем же форматом, что и «правильный» фикс в пакете. systemd-sysusers
-        #    есть всегда: systemd в базовом образе.
-        cat > /etc/sysusers.d/00-lxc-pin.conf <<'CONF'
-        u victorialogs-loc 479 "VictoriaLogs single-node (uid закреплён декларацией)" /var/lib/victorialogs-loc /usr/bin/nologin
-        CONF
-        systemd-sysusers /etc/sysusers.d/00-lxc-pin.conf
-        id -u victorialogs-loc | grep -qx 479          # номер занят внутри — падаем громко
-        # 2. Доверие к Хражевнику и зеркало foundation лежат в образе — проверяем, а не надеемся.
+        # Задача user-data — только поставить пакет и включить юнит. Запуск сервиса
+        # делает хостовый контур ПОСЛЕ того, как выставит владельца датасета: внутри
+        # контейнера chown примонтированного датасета невозможен (он принадлежит
+        # неназначенному uid, прав на него у root'а контейнера нет).
+        # uid сервиса здесь НЕ фиксируется: номер читает контур из инстанса после
+        # установки (пакет создаёт пользователя сам, номер от нас не зависит).
         test -f /etc/pki/trust/anchors/step-ca.crt
         update-ca-certificates >/dev/null
         test -f /etc/zypp/repos.d/khrazhevnik-leap16-oss.repo
-        # 3. Апстримных репозиториев в пути быть не должно.
         if ls /etc/zypp/repos.d/openSUSE*.repo >/dev/null 2>&1; then
           echo "в образе апстримный репозиторий — путь нарушен"; exit 1
         fi
-        # 4. Сервис ставится из личного rpm-md.
         zypper --non-interactive --gpg-auto-import-keys refresh
         zypper --non-interactive install -y --no-recommends victorialogs-loc
-        systemctl enable --now victorialogs-loc
-        # 5. Владелец примонтированного датасета: tmpfiles.d пакета выставляет его по имени,
-        #    и через пару 1:1 он виден внутри как 479. Проверяем — иначе сервис не сможет писать.
-        test "$(stat -c %u /var/lib/victorialogs-loc)" = 479
-        # 6. Критерий успеха — живой сервис, а не «cloud-init done»: при недоступном
-        #    репозитории статус тоже done, а пакета нет (замерено).
-        ok=0
-        for i in $(seq 1 30); do
-          if curl -fsS --max-time 3 http://127.0.0.1:9428/health >/dev/null 2>&1; then ok=1; break; fi
-          sleep 2
-        done
-        if [ "$ok" != 1 ]; then
-          echo "victorialogs-loc не отвечает на /health"
-          journalctl -u victorialogs-loc -n 50 --no-pager || true
-          exit 1
-        fi
-        echo "vl1: victorialogs-loc поднят и отвечает (uid $(id -u victorialogs-loc))"
+        rpm -q victorialogs-loc >/dev/null
+        systemctl enable victorialogs-loc.service >/dev/null
+        echo "vl1: пакет установлен, юнит включён (uid $(id -u victorialogs-loc))"
 
 devices:
   # Данные — датасет хоста (не том внутри пула Incus): снапшоты и откат делает контур

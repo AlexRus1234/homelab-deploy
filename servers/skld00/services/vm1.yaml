@@ -22,12 +22,9 @@ config:
   user.healthcheck: "curl -fsS --max-time 5 http://127.0.0.1:8428/health >/dev/null && systemctl is-active --quiet victoriametrics-loc"
   user.data_dataset: tank/vm-data
   user.data_mountpoint: /var/lib/victoriametrics-loc
-  user.service_uid: "478"
 
-  # uid сервиса внутри нужен, чтобы хостовая сторона была предсказуемой: владельцем датасета
-  # на хосте должен быть 100000+uid (контур считает это из карты инстанса). Пара `raw.idmap`
-  # не нужна — дефолтный маппинг переводит uid 478 в 100478.
-  # (ключ raw.idmap сознательно отсутствует)
+  # uid не объявляется: контур читает его из инстанса и от него считает хозяина данных
+  # на хосте (100000+uid). Пакет создаёт пользователя сам, номер от нас не зависит.
 
   cloud-init.user-data: |
     #cloud-config
@@ -45,38 +42,19 @@ config:
     runcmd:
       - |
         set -euo pipefail
-        # 1. uid сервиса фиксируем сами до установки: пакет создаёт пользователя без
-        #    номера (`u victoriametrics-loc - ...`), пара raw.idmap требует известного номера.
-        cat > /etc/sysusers.d/00-lxc-pin.conf <<'CONF'
-        u victoriametrics-loc 478 "VictoriaMetrics single-node (uid закреплён декларацией)" /var/lib/victoriametrics-loc /usr/bin/nologin
-        CONF
-        systemd-sysusers /etc/sysusers.d/00-lxc-pin.conf
-        id -u victoriametrics-loc | grep -qx 478       # номер занят внутри — падаем громко
-        # 2. Доверие и зеркало foundation — в образе; апстримных репозиториев быть не должно.
+        # Только пакет и включение юнита: запуск делает хостовый контур после chown
+        # датасета (внутри контейнера владельца примонтированного датасета не сменить).
         test -f /etc/pki/trust/anchors/step-ca.crt
         update-ca-certificates >/dev/null
         test -f /etc/zypp/repos.d/khrazhevnik-leap16-oss.repo
         if ls /etc/zypp/repos.d/openSUSE*.repo >/dev/null 2>&1; then
           echo "в образе апстримный репозиторий — путь нарушен"; exit 1
         fi
-        # 3. Пакет из личного rpm-md, юнит включаем и запускаем.
         zypper --non-interactive --gpg-auto-import-keys refresh
         zypper --non-interactive install -y --no-recommends victoriametrics-loc
-        systemctl enable --now victoriametrics-loc
-        # 4. Владелец примонтированного датасета (tmpfiles.d пакета + пара 1:1) и живость.
-        test "$(stat -c %u /var/lib/victoriametrics-loc)" = 478
-        # 5. Успех — живой сервис, а не «cloud-init done».
-        ok=0
-        for i in $(seq 1 30); do
-          if curl -fsS --max-time 3 http://127.0.0.1:8428/health >/dev/null 2>&1; then ok=1; break; fi
-          sleep 2
-        done
-        if [ "$ok" != 1 ]; then
-          echo "victoriametrics-loc не отвечает на /health"
-          journalctl -u victoriametrics-loc -n 50 --no-pager || true
-          exit 1
-        fi
-        echo "vm1: victoriametrics-loc поднят и отвечает (uid $(id -u victoriametrics-loc))"
+        rpm -q victoriametrics-loc >/dev/null
+        systemctl enable victoriametrics-loc.service >/dev/null
+        echo "vm1: пакет установлен, юнит включён (uid $(id -u victoriametrics-loc))"
 
 devices:
   data:
