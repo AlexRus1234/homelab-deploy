@@ -71,3 +71,20 @@ CHANGED_FILES=$(git diff --name-only --diff-filter=AM $OLD_HASH $NEW_HASH ... | 
 FORCE_FULL_RESTART=1 /opt/appdata/git-repo/.../sync-state.sh
 ```
 При `FORCE_FULL_RESTART=1` скрипт проходит по всем `~/.config/containers/systemd/*.container` и перезапускает каждую службу. По умолчанию (`FORCE_FULL_RESTART` не задан или `0`) применяется точечный режим.
+
+## 4. Узел без ВМ (skld00): тот же агент, применяет Incus
+
+Bare-metal узел `skld00` (NAS + Incus-склад образов) использует **тот же механизм** — `adnanh/webhook`
+на `:9000` + `sync-state.sh` + sparse-checkout, отличие только в том, что применяется не rootless Podman,
+а Incus:
+
+| | ВМ (`obshaga`/`panelka`) | `skld00` |
+| :--- | :--- | :--- |
+| Sparse-checkout | `servers/<узел>/<вм>` | `servers/skld00` |
+| Что применяется | `quadlets/` → `~/.config/containers/systemd/`, `app-configs/` → `/opt/appdata/config/` | `services/*.yaml` → инстансы Incus (`reconcile.sh`) |
+| Пользователь агента | `app-runner` | `app-runner` + группа `incus-admin` (иначе `incus-loc` требует sudo) |
+| Хук | `sync-<вм>` | `sync-skld00` |
+
+`sync-state.sh` узла делает `git pull`, сравнивает хеши по своему поддереву и при изменениях вызывает
+`reconcile.sh` (перечисление/применение деклараций). Описание узла — `servers/skld00/README.md`,
+формат деклараций — `servers/skld00/services/README.md`.

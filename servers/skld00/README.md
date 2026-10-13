@@ -38,6 +38,27 @@
 
 Секреты — в Forgejo/общем secrets-потоке, не в репозитории.
 
+## GitOps-агент узла (pull-модель, как у ВМ)
+
+Узел получает свою декларацию из этого же репозитория тем же механизмом, что ВМ `obshaga`/`panelka`:
+`adnanh/webhook` на `:9000` принимает POST от Forgejo (проверка HMAC `X-Gitea-Signature`) и запускает
+`servers/skld00/sync-state.sh`, который делает `git pull` в sparse-checkout **только** `servers/skld00/`
+и вызывает `reconcile.sh`.
+
+| | |
+| :--- | :--- |
+| Рабочий каталог | `/opt/appdata` (клон — `/opt/appdata/git-repo`) |
+| Sparse-checkout | `servers/skld00` |
+| Пользователь агента | `app-runner` (как на ВМ), дополнительно в группе `incus-admin` — иначе `incus-loc` без sudo не работает |
+| Хук | `sync-skld00`, `command-working-directory=/opt/appdata`, `execute-command=/opt/appdata/git-repo/servers/skld00/sync-state.sh` |
+| Конфиг webhook | `/opt/appdata/config/webhook/hooks.json`, юнит `webhook.service` (systemd --user), порт `9000` |
+| Декларации сервисов | `servers/skld00/services/<имя>.yaml` — формат в `services/README.md` |
+| Применение | `reconcile.sh` — шаг 1: перечисление и проверка окружения; шаг 2: создание/применение инстансов |
+
+Для регистрации хука в Forgejo: репозиторий `AlexRus1234/homelab-deploy` → Settings → Webhooks →
+Add webhook (Gitea) → URL `http://172.20.50.1:9000/hooks/sync-skld00`, тот же secret, событие
+«Push», content type `application/json`.
+
 ## Публикация и потребление
 
 - **CI** (`Build/lxc-build`, workflow `build-leap16-base`): сборка → проверка «образ с этим

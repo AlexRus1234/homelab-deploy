@@ -142,15 +142,22 @@ homelab-deploy/
     │           └── memos/
     │               └── .keep
     │
-    └── yadr01/
-        └── panelka/
-            ├── sync-state.sh
-            ├── quadlets/
-            │   ├── 01-nora.container
-            │   └── 02-khrazhevnik.container
-            └── app-configs/
-                ├── nora/
-                │   └── nora.env.example
-                └── khrazhevnik/
-                    └── khrazhevnik.env.example
+    ├── yadr01/
+    │   └── panelka/
+    │       ├── sync-state.sh
+    │       ├── quadlets/
+    │       │   ├── 01-nora.container
+    │       │   └── 02-khrazhevnik.container
+    │       └── app-configs/
+    │           ├── nora/
+    │           │   └── nora.env.example
+    │           └── khrazhevnik/
+    │               └── khrazhevnik.env.example
+    │
+    └── skld00/                    # bare-metal узел: Incus-склад образов + инстансы
+        ├── README.md              # роль узла: склад и GitOps-агент
+        ├── sync-state.sh          # pull по webhook → reconcile
+        ├── reconcile.sh           # приведение инстансов к services/*.yaml
+        └── services/
+            └── README.md          # формат деклараций инстансов
 ```
