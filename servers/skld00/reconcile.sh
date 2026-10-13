@@ -163,9 +163,18 @@ for f in "${files[@]}"; do
             continue
         fi
         log "инстанса нет — создаю из $BASE_ALIAS"
-        if ! incus-loc launch "$BASE_ALIAS" "$name" < "$f"; then
-            log "ОШИБКА: launch не удался"
-            record "$name" "create" "провал" "launch"; FAIL=1; continue
+        if ! out=$(incus-loc launch "$BASE_ALIAS" "$name" < "$f" 2>&1); then
+            err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
+            log "ОШИБКА: launch не удался: $err"
+            record "$name" "create" "провал" "launch: $err"
+            # `launch` = создать И запустить: при провале старта инстанс остаётся созданным
+            # и остановленным, и повторный прогон увидит «инстанс есть». Говорим об этом прямо.
+            if incus-loc info "$name" >/dev/null 2>&1; then
+                log "    инстанс $name создан, но не запустился. Причину показывает:"
+                log "        incus-loc info --show-log $name"
+                log "    для чистой попытки: incus-loc delete $name --force, затем повторить прогон"
+            fi
+            FAIL=1; continue
         fi
         incus-loc exec "$name" -- cloud-init status --wait >/dev/null 2>&1 \
             || log "ВНИМАНИЕ: cloud-init завершился с ошибкой (решает проба сервиса)"
