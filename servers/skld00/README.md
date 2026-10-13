@@ -56,7 +56,7 @@
 | Хук | `sync-skld00`, `command-working-directory=/opt/appdata`, `execute-command=/opt/appdata/git-repo/servers/skld00/sync-state.sh` |
 | Конфиг webhook | `/opt/appdata/config/webhook/hooks.json` (0600), юнит `/etc/systemd/system/webhook.service`, порт `9002` |
 | Декларации сервисов | `servers/skld00/services/<имя>.yaml` — формат в `services/README.md` |
-| Применение | `reconcile.sh`: `create` → `start` → ожидание cloud-init (ставит пакет и включает юнит) → чтение uid сервиса из инстанса → `chown 100000+uid` датасета → `systemctl start` юнита → health-gate; скалярные правки — `incus config set` живьём; смена состава — сообщает «нужен recreate» (путь recreate — следующий шаг) |
+| Применение | `reconcile.sh`: `create` → `start` → ожидание cloud-init (ставит пакет и включает юнит) → чтение uid сервиса из инстанса → `chown 100000+uid` датасета → `systemctl start` юнита → health-gate; скалярные правки — `incus config set` живьём; смена состава — **пересоздание** (снапшот датасета → старый инстанс в сторону через `rename` → сборка по новой декларации → проба, при провале возврат старого и `zfs rollback`); ручной режим — `reconcile.sh --recreate <имя>` |
 | Выключатель автоматики | файл `/etc/lxc-automation.off`: пока он есть, `reconcile.sh` ничего не меняет (только отчёт) — отладочный этап, первый запуск делается руками (см. `services/README.md`) |
 | Отчёт | строки в `/var/lib/lxc-update/status`: имя, действие, результат, подробности, длительность |
 

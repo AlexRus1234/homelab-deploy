@@ -13,8 +13,12 @@
 #   * данные проверяет на каждом прогоне: если владелец разъехался — возвращает (самопочинка)
 #     и перезапускает юнит, который из-за этого мог не подняться;
 #   * применяет живьём скалярные ключи `config:` (limits.*, user.*) через `incus config set`;
-#   * если менялся СОСТАВ (devices, raw.idmap, cloud-init.user-data) — ничего не трогает
-#     и сообщает, что нужен recreate (путь recreate со снапшотом тома — следующий шаг).
+#   * если менялся СОСТАВ (devices, raw.idmap, cloud-init.user-data) — ПЕРЕСОЗДАЁТ инстанс:
+#     снапшот датасета → старый инстанс отставляется в сторону через rename (НЕ удаляется) →
+#     create по новой декларации → проба; при провале — вернуть старый инстанс и zfs rollback.
+#     Откат опирается на сам инстанс, а не на старую декларацию: она могла устареть
+#     (сменилась база, версия пакета уехала), а работавший инстанс — нет.
+#   * `reconcile.sh --recreate <имя>` — принудительная пересборка инстанса по текущей декларации.
 #
 # Почему uid читается, а не объявляется: наши `-loc`-пакеты создают пользователя через
 # `sysusers.d` БЕЗ номера, и номер зависит от состояния /etc/passwd в контейнере. Замерено:
@@ -184,7 +188,126 @@ health_gate() { # инстанс, маркер загрузки, команда 
     return 0
 }
 
+# --- создание инстанса -------------------------------------------------------
+# Полная последовательность: create → start → cloud-init (ставит пакет и включает юнит)
+# → чтение ФАКТИЧЕСКОГО uid сервиса → chown датасета в хост-номер → systemctl start юнита → проба.
+# Используется и первым созданием, и пересозданием. При провале кладёт причину в LAST_ERROR
+# (её пишет в статус вызывающий) и возвращает 1.
+LAST_ERROR=""
+CREATED_UID=""
+RECREATED_UID=""
+create_instance() { # имя, файл-декларация, датасет, маркер, проба, юнит, пользователь
+    local name="$1" f="$2" ds="$3" marker="$4" hc="$5" unit="$6" user="$7" uid out err
+    LAST_ERROR=""
+    if ! out=$(incus-loc create "$BASE_ALIAS" "$name" < "$f" 2>&1); then
+        err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
+        log "ОШИБКА: create не удался: $err"
+        LAST_ERROR="create: $err"
+        return 1
+    fi
+    if ! out=$(incus-loc start "$name" 2>&1); then
+        err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
+        log "ОШИБКА: start не удался: $err"
+        LAST_ERROR="start: $err"
+        log "    причину показывает: incus-loc info --show-log $name"
+        return 1
+    fi
+    incus-loc exec "$name" -- cloud-init status --wait >/dev/null 2>&1 \
+        || log "ВНИМАНИЕ: cloud-init завершился с ошибкой — смотри строки ниже"
+    uid=$(svc_uid "$name" "$user")
+    if [ -z "$uid" ]; then
+        log "ОШИБКА: в инстансе нет пользователя $user — значит пакет не установился"
+        log "--- хвост cloud-init-output.log:"
+        incus-loc exec "$name" -- tail -15 /var/log/cloud-init-output.log 2>/dev/null | sed 's/^/    /' || true
+        LAST_ERROR="нет пользователя $user"
+        return 1
+    fi
+    log "uid сервиса в инстансе: $uid"
+    if ! data_prep "$name" "$ds" "$uid"; then
+        LAST_ERROR="данные: $ds"
+        return 1
+    fi
+    if ! out=$(incus-loc exec "$name" -- systemctl start "$unit" 2>&1); then
+        err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
+        log "ВНИМАНИЕ: не удалось запустить $unit: $err (решает проба ниже)"
+    fi
+    if health_gate "$name" "$marker" "$hc"; then
+        CREATED_UID="$uid"
+        return 0
+    fi
+    LAST_ERROR="health-gate"
+    return 1
+}
+
+# --- пересоздание по изменённой декларации -----------------------------------
+# Данные: снапшот датасета. Инстанс: НЕ удаляется, а отставляется в сторону (rename) —
+# так откат не зависит ни от git, ни от склада, ни от применимости старой декларации.
+recreate_instance() { # имя, файл-декларация, датасет, маркер, проба, юнит, пользователь, старый-хеш
+    local name="$1" f="$2" ds="$3" marker="$4" hc="$5" unit="$6" user="$7" old="$8"
+    local ts old_name hostmp uid
+    ts=$(date +%Y%m%d-%H%M%S)
+    old_name="${name}-pre-${ts}"
+    LAST_ERROR=""
+
+    if [ -n "$ds" ] && zfs list -H -o name "$ds" >/dev/null 2>&1; then
+        hostmp=$(zfs get -H -o value mountpoint "$ds")
+        if zfs snapshot "${ds}@recreate-${ts}"; then
+            log "данные: снапшот ${ds}@recreate-${ts}"
+        else
+            log "ОШИБКА: не смог снять снапшот ${ds}@recreate-${ts} — пересоздание отменено"
+            LAST_ERROR="снапшот данных"; return 1
+        fi
+    fi
+
+    if ! out=$(incus-loc stop "$name" 2>&1); then
+        log "ОШИБКА: не удалось остановить $name: $(printf '%s' "$out" | tail -1)"
+        LAST_ERROR="stop перед пересозданием"; return 1
+    fi
+    if ! out=$(incus-loc rename "$name" "$old_name" 2>&1); then
+        log "ОШИБКА: не удалось отставить инстанс в сторону ($old_name): $(printf '%s' "$out" | tail -1)"
+        incus-loc start "$name" >/dev/null 2>&1 || true
+        LAST_ERROR="rename перед пересозданием"; return 1
+    fi
+    log "старый инстанс отставлен как $old_name (вернём при провале, удалит GC)"
+
+    if create_instance "$name" "$f" "$ds" "$marker" "$hc" "$unit" "$user"; then
+        log "пересоздание прошло (uid $CREATED_UID); старый $old_name ждёт GC"
+        RECREATED_UID="$CREATED_UID"
+        return 0
+    fi
+
+    # --- откат: снести новый, вернуть старый, откатить данные ---
+    log "ПРОВАЛ пересоздания ($LAST_ERROR) — откат к $old_name"
+    incus-loc delete "$name" --force >/dev/null 2>&1 || true
+    if ! incus-loc rename "$old_name" "$name" >/dev/null 2>&1; then
+        log "ОШИБКА ОТКАТА: не удалось вернуть $old_name на место — разбираться руками"
+        LAST_ERROR="откат: rename обратно"; return 1
+    fi
+    if [ -n "$ds" ] && zfs list -H -t snapshot -o name "$ds" 2>/dev/null | grep -qx "${ds}@recreate-${ts}"; then
+        if zfs rollback "${ds}@recreate-${ts}"; then
+            log "данные откатаны к ${ds}@recreate-${ts}"
+        else
+            log "ОШИБКА ОТКАТА: zfs rollback ${ds}@recreate-${ts} не удался"
+            LAST_ERROR="откат: zfs rollback"; return 1
+        fi
+    fi
+    if incus-loc start "$name" >/dev/null 2>&1 && health_gate "$name" "$marker" "$hc"; then
+        log "откат успешен: $name работает на прежнем состоянии"
+        LAST_ERROR="откат выполнен (пересоздание провалено)"
+        return 1
+    fi
+    log "ОШИБКА ОТКАТА: $name не поднялся на прежнем состоянии — нужен человек"
+    LAST_ERROR="откат не помог — нужен человек"
+    return 1
+}
+
 # --- окружение ---------------------------------------------------------------
+RECREATE_ONLY=""
+if [ "${1:-}" = "--recreate" ]; then
+    RECREATE_ONLY="${2:-}"
+    [ -n "$RECREATE_ONLY" ] || { echo "использование: reconcile.sh --recreate <имя>" >&2; exit 2; }
+    log "=== reconcile: принудительное пересоздание $RECREATE_ONLY"
+fi
 log "=== reconcile: ${1:-нет} -> ${2:-нет}"
 command -v incus-loc >/dev/null 2>&1 || { log "ОШИБКА: нет incus-loc — это не узел Incus"; exit 1; }
 
@@ -205,6 +328,9 @@ mkdir -p "$STATE_DIR/applied" 2>/dev/null || true
 
 for f in "${files[@]}"; do
     name=$(basename "$f" .yaml)
+    if [ -n "$RECREATE_ONLY" ] && [ "$name" != "$RECREATE_ONLY" ]; then
+        continue          # режим --recreate --name: остальные декларации не трогаем
+    fi
     pkg=$(declared "$f" user.package)
     user=$(svc_user "$f")
     unit="${pkg}.service"
@@ -220,59 +346,17 @@ for f in "${files[@]}"; do
     # ---------------------------------------------------------------- создание
     if ! incus-loc info "$name" >/dev/null 2>&1; then
         if [ "$DRY_RUN" = 1 ]; then
-            log "сделал бы: incus-loc create $BASE_ALIAS $name < $f"
-            log "        затем: start → ждать cloud-init (ставит пакет) → прочитать uid из инстанса"
-            log "        затем: chown $ds в хост-номер (Hostid+uid) → systemctl start $unit → health-gate"
+            log "сделал бы: create $BASE_ALIAS $name → start → cloud-init → uid → chown $ds → systemctl start $unit → health-gate"
             continue
         fi
-        # create, а не launch: карта uid выделяется ПРИ СОЗДАНИИ, и без неё нельзя
-        # вычислить хостового владельца данных (а сменить владельца нужно до старта)
-        log "инстанса нет — создаю из $BASE_ALIAS (без запуска)"
-        if ! out=$(incus-loc create "$BASE_ALIAS" "$name" < "$f" 2>&1); then
-            err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
-            log "ОШИБКА: create не удался: $err"
-            record "$name" "create" "провал" "create: $err"; FAIL=1; continue
-        fi
-        if ! data_prep "$name" "$ds" "$uid"; then
-            record "$name" "create" "провал" "данные: $ds"
-            log "    инстанс создан, но данные не готовы — разобраться и повторить"
-            FAIL=1; continue
-        fi
-        if ! out=$(incus-loc start "$name" 2>&1); then
-            err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
-            log "ОШИБКА: start не удался: $err"
-            record "$name" "create" "провал" "start: $err"
-            log "    инстанс создан, но не запустился. Причину показывает:"
-            log "        incus-loc info --show-log $name"
-            log "    для чистой попытки: incus-loc delete $name --force, затем повторить прогон"
-            FAIL=1; continue
-        fi
-        incus-loc exec "$name" -- cloud-init status --wait >/dev/null 2>&1 \
-            || log "ВНИМАНИЕ: cloud-init завершился с ошибкой — смотри строки ниже"
-        # uid читаем у факта: пакет создал пользователя при установке
-        uid=$(svc_uid "$name" "$user")
-        if [ -z "$uid" ]; then
-            log "ОШИБКА: в инстансе нет пользователя $user — значит пакет не установился"
-            log "--- хвост cloud-init-output.log:"
-            incus-loc exec "$name" -- tail -15 /var/log/cloud-init-output.log 2>/dev/null | sed 's/^/    /' || true
-            record "$name" "create" "провал" "нет пользователя $user"
-            log "    чистая попытка: incus-loc delete $name --force, затем повторить прогон"
-            FAIL=1; continue
-        fi
-        log "uid сервиса в инстансе: $uid"
-        if ! data_prep "$name" "$ds" "$uid"; then
-            record "$name" "create" "провал" "данные: $ds"; FAIL=1; continue
-        fi
-        if ! out=$(incus-loc exec "$name" -- systemctl start "$unit" 2>&1); then
-            err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
-            log "ВНИМАНИЕ: не удалось запустить $unit: $err (решает проба ниже)"
-        fi
-        if health_gate "$name" "$marker" "$hc"; then
+        # create, а не launch: карта uid выделяется ПРИ СОЗДАНИИ, и без неё нельзя вычислить
+        # хостового владельца данных (а сменить владельца нужно до первого запуска сервиса)
+        if create_instance "$name" "$f" "$ds" "$marker" "$hc" "$unit" "$user"; then
             printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
-            record "$name" "create" "ok" "инстанс создан из $BASE_ALIAS, uid $uid"
+            record "$name" "create" "ok" "инстанс создан из $BASE_ALIAS, uid $CREATED_UID"
         else
-            record "$name" "create" "провал" "health-gate"
-            log "инстанс $name создан, но проверку не прошёл: разбираться (delete --force и прогон заново)"
+            record "$name" "create" "провал" "$LAST_ERROR"
+            log "инстанс $name не поднялся: разбираться (для чистой попытки: incus-loc delete $name --force)"
             FAIL=1
         fi
         continue
@@ -292,6 +376,24 @@ for f in "${files[@]}"; do
         fi
     else
         log "ВНИМАНИЕ: в инстансе нет пользователя $user — владельца данных не проверяю"
+    fi
+
+    # принудительное пересоздание (`reconcile.sh --recreate <имя>`): хеши не сравниваем,
+    # сразу пересобираем — владелец просит пересобрать с нуля на текущей декларации
+    if [ -n "$RECREATE_ONLY" ]; then
+        log "принудительное пересоздание по запросу владельца"
+        if [ "$DRY_RUN" = 1 ]; then
+            log "сделал бы: снапшот данных, rename в сторону, пересоздание по текущей декларации"
+            continue
+        fi
+        if recreate_instance "$name" "$f" "$ds" "$marker" "$hc" "$unit" "$user" "${1:-}"; then
+            printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
+            record "$name" "recreate" "ok" "пересоздан по запросу (--recreate), uid $RECREATED_UID"
+        else
+            record "$name" "recreate" "провал" "$LAST_ERROR"
+            FAIL=1
+        fi
+        continue
     fi
 
     # записи может не быть, если предыдущее создание упало (инстанс остался жить) —
@@ -319,9 +421,19 @@ for f in "${files[@]}"; do
         continue
     fi
     if [ "$a_rest" != "$h_rest" ]; then
-        log "ИЗМЕНИЛСЯ СОСТАВ (devices / raw.idmap / cloud-init.user-data) — нужен recreate;"
-        log "сейчас не трогаю: путь recreate (снапшот тома -> пересоздание -> откат) — следующий шаг"
-        record "$name" "apply" "нужен recreate" "изменился состав"
+        log "ИЗМЕНИЛСЯ СОСТАВ (devices / raw.idmap / cloud-init.user-data) — пересоздаю инстанс"
+        if [ "$DRY_RUN" = 1 ]; then
+            log "сделал бы: zfs snapshot $ds@recreate-<дата>; stop + rename $name → $name-pre-<дата>;"
+            log "        create по новой декларации → проба; при провале — вернуть $name-pre-<дата> и zfs rollback"
+            continue
+        fi
+        if recreate_instance "$name" "$f" "$ds" "$marker" "$hc" "$unit" "$user" "${1:-}"; then
+            printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
+            record "$name" "recreate" "ok" "пересоздан по новой декларации, uid $RECREATED_UID"
+        else
+            record "$name" "recreate" "провал" "$LAST_ERROR"
+            FAIL=1
+        fi
         continue
     fi
 

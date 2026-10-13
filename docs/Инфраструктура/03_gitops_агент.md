@@ -81,7 +81,7 @@ Bare-metal узел `skld00` (NAS + Incus-склад образов) испол�
 | | ВМ (`obshaga`/`panelka`) | `skld00` |
 | :--- | :--- | :--- |
 | Sparse-checkout | `servers/<узел>/<вм>` | `servers/skld00` |
-| Что применяется | `quadlets/` → `~/.config/containers/systemd/`, `app-configs/` → `/opt/appdata/config/` | `services/*.yaml` → инстансы Incus: `create` → `start` → cloud-init (пакет + `enable`) → чтение uid → `chown 100000+uid` датасета → `systemctl start` юнита → проба |
+| Что применяется | `quadlets/` → `~/.config/containers/systemd/`, `app-configs/` → `/opt/appdata/config/` | `services/*.yaml` → инстансы Incus: `create` → `start` → cloud-init (пакет + `enable`) → чтение uid → `chown 100000+uid` датасета → `systemctl start` юнита → проба; смена состава → пересоздание с откатом (см. 4.1) |
 | Агент | `app-runner`, юнит `systemd --user` | `root`, системный юнит `webhook.service` |
 | Хук | `sync-<вм>` | `sync-skld00` |
 
@@ -92,3 +92,34 @@ Bare-metal узел `skld00` (NAS + Incus-склад образов) испол�
 Почему на skld00 агент под `root`, а не от unprivileged-пользователя: на ВМ `app-runner` оправдан
 rootless Podman'ом, который привилегий не требует; здесь полезная нагрузка — Incus и ZFS, где `incus-admin`
 уже эквивалентен root, а работа с датасетами (`zfs`, монтирования, shifting) требует root напрямую.
+
+### 4.1. Пересоздание инстанса (правка состава) и откат
+
+Правка состава декларации (`devices`, `cloud-init.user-data`, `raw.idmap`) живьём невозможна —
+меняется корневая файловая система и карта uid. Контур делает это пересозданием:
+
+```
+zfs snapshot <датасет>@recreate-<дата>
+incus stop <имя> && incus rename <имя> <имя>-pre-<дата>     # старый НЕ удаляется
+create по новой декларации → start → cloud-init → uid → chown → systemctl start → проба
+успех: applied обновлён, <имя>-pre-<дата> ждёт GC
+провал: delete нового → rename старого обратно → zfs rollback → start → проба
+```
+
+Ключевое решение: **откат опирается на сам инстанс, а не на старую декларацию.** Пересобрать по
+предыдущей декларации из git нельзя гарантировать: обновление могло подтянуть другую базу, версия
+пакета могла уехать из Хражевника — и откат не соберётся как раз тогда, когда нужен. `rename`
+на zfs не копирует данные, поэтому отставленный инстанс хранит ровно те пакеты и конфиги, что
+работали. Git-декларация остаётся третьим эшелоном (бесплатным), но не основой отката.
+
+Ручной режим (пересобрать инстанс, когда декларация не менялась — например, он остался в отладочном
+состоянии):
+
+```sh
+sudo /opt/appdata/git-repo/servers/skld00/reconcile.sh --recreate vl1
+```
+
+Тот же путь используется ночным контуром обновления, но там пересоздание не нужно: состав не
+меняется, меняются версии пакетов (`zypper dup`), поэтому откат — снапшот инстанса
+(`incus snapshot create` / `restore`) плюс снапшот датасета. GC отставленных инстансов и снапшотов
+по `user.rollback_window` (потолок N=3) — часть того же шага.
