@@ -75,8 +75,8 @@ FORCE_FULL_RESTART=1 /opt/appdata/git-repo/.../sync-state.sh
 ## 4. Узел без ВМ (skld00): тот же агент, применяет Incus
 
 Bare-metal узел `skld00` (NAS + Incus-склад образов) использует **тот же механизм** — `adnanh/webhook`
-на `:9000` + `sync-state.sh` + sparse-checkout, отличие только в том, что применяется не rootless Podman,
-а Incus:
++ `sync-state.sh` + sparse-checkout, отличие только в том, что применяется не rootless Podman,
+а Incus. Порт агента на skld00 — `9002` (конвенционный `9000` там занят RustFS, S3-хранилищем Forgejo).
 
 | | ВМ (`obshaga`/`panelka`) | `skld00` |
 | :--- | :--- | :--- |

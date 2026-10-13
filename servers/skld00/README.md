@@ -41,9 +41,12 @@
 ## GitOps-агент узла (pull-модель, как у ВМ)
 
 Узел получает свою декларацию из этого же репозитория тем же механизмом, что ВМ `obshaga`/`panelka`:
-`adnanh/webhook` на `:9000` принимает POST от Forgejo (проверка HMAC `X-Gitea-Signature`) и запускает
+`adnanh/webhook` на `:9002` принимает POST от Forgejo (проверка HMAC `X-Gitea-Signature`) и запускает
 `servers/skld00/sync-state.sh`, который делает `git pull` в sparse-checkout **только** `servers/skld00/`
 и вызывает `reconcile.sh`.
+
+Порт `9002`, а не конвенционный `9000`: на этом узле `:9000` занят RustFS — S3-хранилищем Forgejo
+(`172.21.6.249:9000`), поэтому агент посажен на свободный порт.
 
 | | |
 | :--- | :--- |
@@ -51,13 +54,16 @@
 | Sparse-checkout | `servers/skld00` |
 | Агент | системный юнит `webhook.service` под `root` (`User=root`), бинарь `/usr/local/bin/webhook` |
 | Хук | `sync-skld00`, `command-working-directory=/opt/appdata`, `execute-command=/opt/appdata/git-repo/servers/skld00/sync-state.sh` |
-| Конфиг webhook | `/opt/appdata/config/webhook/hooks.json` (0600), юнит `/etc/systemd/system/webhook.service`, порт `9000` |
+| Конфиг webhook | `/opt/appdata/config/webhook/hooks.json` (0600), юнит `/etc/systemd/system/webhook.service`, порт `9002` |
 | Декларации сервисов | `servers/skld00/services/<имя>.yaml` — формат в `services/README.md` |
 | Применение | `reconcile.sh` — шаг 1: перечисление и проверка окружения; шаг 2: создание/применение инстансов |
 
 Для регистрации хука в Forgejo: репозиторий `AlexRus1234/homelab-deploy` → Settings → Webhooks →
-Add webhook (Gitea) → URL `http://172.20.50.1:9000/hooks/sync-skld00`, тот же secret, событие
+Add webhook (Gitea) → URL `http://172.20.50.1:9002/hooks/sync-skld00`, тот же secret, событие
 «Push», content type `application/json`.
+
+Проверено 2026-10-13: хук зарегистрирован, `Test delivery` из Forgejo проходит — `sync-state.sh`
+отрабатывает и отвечает `Изменений в servers/skld00 нет — делать нечего.`
 
 **Почему root, а не unprivileged-пользователь как на ВМ.** Там `app-runner` оправдан rootless
 Podman'ом, который привилегий не требует. Здесь полезная нагрузка — Incus и ZFS: членство в группе
