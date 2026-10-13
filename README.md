@@ -159,5 +159,7 @@ homelab-deploy/
         ├── sync-state.sh          # pull по webhook → reconcile
         ├── reconcile.sh           # приведение инстансов к services/*.yaml
         └── services/
-            └── README.md          # формат деклараций инстансов
+            ├── README.md          # формат деклараций инстансов
+            ├── vl1.yaml           # VictoriaLogs  (:9428)
+            └── vm1.yaml           # VictoriaMetrics (:8428)
 ```

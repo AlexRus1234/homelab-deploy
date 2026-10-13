@@ -81,7 +81,7 @@ Bare-metal узел `skld00` (NAS + Incus-склад образов) испол�
 | | ВМ (`obshaga`/`panelka`) | `skld00` |
 | :--- | :--- | :--- |
 | Sparse-checkout | `servers/<узел>/<вм>` | `servers/skld00` |
-| Что применяется | `quadlets/` → `~/.config/containers/systemd/`, `app-configs/` → `/opt/appdata/config/` | `services/*.yaml` → инстансы Incus (`reconcile.sh`) |
+| Что применяется | `quadlets/` → `~/.config/containers/systemd/`, `app-configs/` → `/opt/appdata/config/` | `services/*.yaml` → инстансы Incus: `create` → `start` → cloud-init (пакет + `enable`) → чтение uid → `chown 100000+uid` датасета → `systemctl start` юнита → проба |
 | Агент | `app-runner`, юнит `systemd --user` | `root`, системный юнит `webhook.service` |
 | Хук | `sync-<вм>` | `sync-skld00` |
 
