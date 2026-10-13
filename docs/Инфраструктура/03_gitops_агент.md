@@ -82,9 +82,13 @@ Bare-metal узел `skld00` (NAS + Incus-склад образов) испол�
 | :--- | :--- | :--- |
 | Sparse-checkout | `servers/<узел>/<вм>` | `servers/skld00` |
 | Что применяется | `quadlets/` → `~/.config/containers/systemd/`, `app-configs/` → `/opt/appdata/config/` | `services/*.yaml` → инстансы Incus (`reconcile.sh`) |
-| Пользователь агента | `app-runner` | `app-runner` + группа `incus-admin` (иначе `incus-loc` требует sudo) |
+| Агент | `app-runner`, юнит `systemd --user` | `root`, системный юнит `webhook.service` |
 | Хук | `sync-<вм>` | `sync-skld00` |
 
 `sync-state.sh` узла делает `git pull`, сравнивает хеши по своему поддереву и при изменениях вызывает
 `reconcile.sh` (перечисление/применение деклараций). Описание узла — `servers/skld00/README.md`,
 формат деклараций — `servers/skld00/services/README.md`.
+
+Почему на skld00 агент под `root`, а не от unprivileged-пользователя: на ВМ `app-runner` оправдан
+rootless Podman'ом, который привилегий не требует; здесь полезная нагрузка — Incus и ZFS, где `incus-admin`
+уже эквивалентен root, а работа с датасетами (`zfs`, монтирования, shifting) требует root напрямую.

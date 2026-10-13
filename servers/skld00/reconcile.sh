@@ -17,7 +17,7 @@ STORE_REMOTE=${STORE_REMOTE:-skld00}
 
 echo "=== reconcile: ${1:-нет} -> ${2:-нет}"
 
-# окружение: incus доступен агенту (пользователь должен быть в группе incus-admin)
+# окружение: incus доступен (агент — системный юнит под root, инстансами управляет без sudo)
 if ! command -v incus-loc >/dev/null 2>&1; then
     echo "ОШИБКА: нет incus-loc — агент запускается не на узле Incus" >&2
     exit 1

@@ -49,15 +49,22 @@
 | :--- | :--- |
 | Рабочий каталог | `/opt/appdata` (клон — `/opt/appdata/git-repo`) |
 | Sparse-checkout | `servers/skld00` |
-| Пользователь агента | `app-runner` (как на ВМ), дополнительно в группе `incus-admin` — иначе `incus-loc` без sudo не работает |
+| Агент | системный юнит `webhook.service` под `root` (`User=root`), бинарь `/usr/local/bin/webhook` |
 | Хук | `sync-skld00`, `command-working-directory=/opt/appdata`, `execute-command=/opt/appdata/git-repo/servers/skld00/sync-state.sh` |
-| Конфиг webhook | `/opt/appdata/config/webhook/hooks.json`, юнит `webhook.service` (systemd --user), порт `9000` |
+| Конфиг webhook | `/opt/appdata/config/webhook/hooks.json` (0600), юнит `/etc/systemd/system/webhook.service`, порт `9000` |
 | Декларации сервисов | `servers/skld00/services/<имя>.yaml` — формат в `services/README.md` |
 | Применение | `reconcile.sh` — шаг 1: перечисление и проверка окружения; шаг 2: создание/применение инстансов |
 
 Для регистрации хука в Forgejo: репозиторий `AlexRus1234/homelab-deploy` → Settings → Webhooks →
 Add webhook (Gitea) → URL `http://172.20.50.1:9000/hooks/sync-skld00`, тот же secret, событие
 «Push», content type `application/json`.
+
+**Почему root, а не unprivileged-пользователь как на ВМ.** Там `app-runner` оправдан rootless
+Podman'ом, который привилегий не требует. Здесь полезная нагрузка — Incus и ZFS: членство в группе
+`incus-admin` и так эквивалентно root (из привилегированного контейнера с примонтированным хостовым
+`/` выход в корень узла — одна команда), а `zfs create/snapshot/set`, монтирования и uid-shifting
+томов данных требуют root напрямую. Отдельный пользователь добавил бы только sudoers-правила —
+ту же власть, но размазанную по конфигам.
 
 ## Публикация и потребление
 
