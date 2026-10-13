@@ -1,67 +1,121 @@
 # `services/` — декларации инстансов Incus на skld00
 
-Один файл на сервис: `<имя>.yaml`. Имя файла = имя инстанса (`vm1.yaml` → инстанс `vm1`).
+Один файл на сервис: `<имя>.yaml`. Имя файла = имя инстанса (`vl1.yaml` → инстанс `vl1`).
 Файл — это **нативный YAML инстанса Incus** (тот же формат, что принимает
 `incus launch <образ> <имя> < файл.yaml`) плюс политика в `user.*`-ключах и провижининг
-в `cloud-init.user-data`. Подробное описание схемы и её обоснование —
-`lxc-build/актуальная схема.md`.
+в `cloud-init.user-data`. Обоснование схемы целиком — `lxc-build/актуальная схема.md`.
 
-## Пример (форма, к которой идём)
+Эталон сейчас один — **`vl1.yaml`** (VictoriaLogs). Читать его как образец, здесь — только правила.
+
+## Ключи `user.*`, которые читает хостовый контур
+
+| Ключ | Смысл |
+| :--- | :--- |
+| `user.role` | роль сервиса (человекочитаемо, для отчётов) |
+| `user.package` | имя пакета из личного rpm-md (`-loc`-суффикс — у наших сборок) |
+| `user.update_policy` | `inplace` (данные сохраняем, меняются версии пакетов) или `recreate` |
+| `user.rollback_window` | сколько живут снапшоты после обновления (базово `24h`) |
+| `user.boot_marker` | файл-доказательство, что инстанс прошёл загрузку (`/run/lxc-boot-ok`) |
+| `user.healthcheck` | одна строка пробы: ненулевой код = инстанс нездоров |
+| `user.data_dataset` | датасет хоста с данными (`tank/vl-data`) |
+| `user.data_mountpoint` | куда он монтируется внутри (`/var/lib/victorialogs-loc`) |
+| `user.service_uid` | uid сервиса внутри; он же владелец датасета на хосте |
+
+Скалярные ключи `config:` контур применяет живьём (`incus config set`). Всё остальное — состав
+(`devices`, `raw.idmap`, `cloud-init.user-data`) — живьём не меняется: правка требует recreate,
+и контур об этом сообщает, а не правит молча.
+
+## Данные: датасет хоста, а не том внутри пула Incus
+
+Тома внутри пула (`tank/incus/volumes/...`) под данные БД не создаём: **у zfs-драйвера нет ключа
+`source`** (проверено по списку ключей тома: `block.*`, `initial.*`, `security.*`, `size`, `zfs.*`),
+то есть подключить существующий датасет томом Incus нельзя, а складывать БД в пул образов —
+смешивать разные вещи. Поэтому:
+
+- датасет создаёт владелец, заранее и с нужными свойствами:
+
+```sh
+# VictoriaMetrics — метрики: мелкие случайные записи, малый блок
+sudo zfs create -o recordsize=16K -o special_small_blocks=0 tank/vm-data
+
+# VictoriaLogs — логи: записи крупнее, блок больше
+sudo zfs create -o recordsize=128K -o special_small_blocks=0 tank/vl-data
+```
+
+- в декларацию он попадает устройством:
 
 ```yaml
-name: vm1
-description: "VictoriaMetrics single-node (данные — на датасете tank/vm-data)"
-config:
-  limits.cpu: "4"
-  limits.memory: 4GiB
-  user.role: victoriametrics
-  user.update_policy: inplace          # inplace | recreate
-  user.rollback_window: 24h            # сколько держим снапшоты после обновления
-  user.healthcheck: "curl -fsS --max-time 5 http://127.0.0.1:8428/health && systemctl is-active --quiet victoriametrics-loc"
-  cloud-init.user-data: |
-    #cloud-config
-    write_files:
-      - path: /etc/pki/trust/anchors/homelan-root.crt
-        permissions: '0644'
-        content: |
-          <корень домашнего CA — step-ca>
-      - path: /etc/zypp/repos.d/zypper-sle-alexrus1234.repo
-        permissions: '0644'
-        content: |
-          [zypper-sle-alexrus1234]
-          name=zypper-sle-alexrus1234 (личный rpm-md, Хражевник)
-          baseurl=https://khrazhevnik.panelka.yadr01.internal/repo/zypper-sle-alexrus1234
-          enabled=1
-          autorefresh=0
-          type=rpm-md
-          gpgcheck=0
-    runcmd:
-      - [ sh, -c, "set -e; update-ca-certificates; zypper --non-interactive refresh; zypper --non-interactive install -y --no-recommends victoriametrics-loc; systemctl enable --now victorialogs-loc 2>/dev/null || systemctl enable --now victoriametrics-loc" ]
 devices:
   data:
     type: disk
-    pool: default
-    source: vm1-data
-    path: /var/lib/victoriametrics-loc
+    source: /tank/vl-data            # путь датасета на хосте
+    path: /var/lib/victorialogs-loc  # точка монтирования внутри инстанса
 ```
 
-## Что здесь важно
+- владельцем корня датасета должен быть uid сервиса (`479` у `victorialogs-loc`), иначе
+  unprivileged-инстанс видит его как `nobody` и не может писать. Отсюда пара в декларации:
 
-- **Данные — только томом** (`devices.data`), иначе `recreate` их теряет. Для БД объём
-  берётся с датасета (`tank/vm-data`, `tank/vl-data`) с нужным uid-shifting — это отдельный
-  шаг, команды ещё не зафиксированы (см. ниже).
-- **`user.healthcheck`** — то, что исполняет хостовый контур и `lxc-healthcheck` внутри
-  инстанса: одна строка, ненулевой код = инстанс нездоров.
-- **`user.update_policy`** — `inplace` (данные и версии пакетов, БД) или `recreate`
-  (меняется состав, состояние не нужно). Дефолт для новых сервисов — `recreate`.
-- **`cloud-init.user-data`** отрабатывает один раз при создании: правка user-data
-  существующего инстанса ничего не меняет, нужен `recreate`.
-- Сети и имени хоста здесь нет: их держат профиль `default` на узле (bridge `incusbr0`)
-  и шаблоны базового образа (`hostname`/`hosts`), а cloud-init в базе выключен по сети
-  (`/etc/cloud/cloud.cfg.d/99-lxc.cfg`).
+```yaml
+  raw.idmap: |
+    both 479 479
+```
 
-## Открытый пункт (шаг 2)
+  Альтернатива — `shift: "true"` на устройстве и владелец `100479` на хосте (shifting overlay).
+  Выбран первый вариант: на диске обычный `479` (`ls` понятен, `zfs send`/`syncoid` дружелюбны),
+  и он не зависит от idmapped-mount на ZFS.
 
-Тома данных и uid-shifting: как именно датасеты `tank/vm-data` / `tank/vl-data` отдаются
-инстансам (`incus storage volume` + `security.shifted`, либо idmap) — решается вместе с
-реализацией `reconcile.sh`. До этого декларации остаются перечислением.
+- снапшоты и откат данных контур делает по `zfs snapshot tank/vl-data@...`: датасет снаружи
+  инстанса, поэтому переживает recreate.
+
+## Отладочный этап: первый запуск руками, автоматика выключена
+
+Пока на узле есть файл-выключатель `/etc/lxc-automation.off`, `reconcile.sh` **ничего не меняет** —
+только печатает, что сделал бы. Владелец снимает флаг, когда захочет включить автоматику целиком.
+
+Ручной прогон (ровно то, что потом сделает контур; `sudo` — потому что Incus и ZFS рутовые):
+
+```sh
+# 0. данные: датасет существует и принадлежит uid сервиса
+zfs list tank/vl-data
+sudo chown 479:479 /tank/vl-data
+
+# 1. автоматика выключена, чтобы не вмешалась в показ
+sudo touch /etc/lxc-automation.off
+
+# 2. создание по декларации
+sudo incus-loc launch leap16-base vl1 < /opt/appdata/git-repo/servers/skld00/services/vl1.yaml
+
+# 3. наблюдение: cloud-init ставит пакет и поднимает юнит
+sudo incus-loc exec vl1 -- cloud-init status --wait
+sudo incus-loc exec vl1 -- journalctl -u victorialogs-loc -n 30 --no-pager
+
+# 4. health-gate — то же, что проверяет контур
+sudo incus-loc exec vl1 -- test -f /run/lxc-boot-ok && echo "загрузка пройдена"
+sudo incus-loc exec vl1 -- /usr/local/sbin/lxc-healthcheck \
+  --command "$(sudo incus-loc config get vl1 user.healthcheck)"
+
+# 5. снаружи
+curl -fsS "http://$(sudo incus-loc list vl1 -c4 --format csv | cut -d' ' -f1):9428/health"
+
+# 6. переделать
+sudo incus-loc delete vl1 --force
+```
+
+## Что делает автоматика после включения
+
+| Ситуация | Действие |
+| :--- | :--- |
+| инстанса нет | `incus-loc launch leap16-base <имя> < декларация` → `cloud-init status --wait` → health-gate |
+| инстанс есть, разошлись скаляры | `incus-loc config set` по каждому отличающемуся ключу |
+| инстанс есть, изменился состав | ничего не делает, пишет «нужен recreate» (путь recreate — следующий шаг) |
+| создан, но пробу не прошёл | пишет «провал» в статус и возвращает ненулевой код — сбой виден в логе хука |
+
+Отчёт каждого прогона — строки в `/var/lib/lxc-update/status` (имя, действие, результат,
+подробности, длительность). Что применено последним — `/var/lib/lxc-update/applied/<имя>`
+(два хеша: состав и скаляры).
+
+## Открытый пункт (следующий шаг)
+
+Путь recreate: снапшот датасета и инстанса → пересоздание по изменённой декларации →
+health-gate → откат при провале. Плюс ночной контур обновления пакетов (`zypper dup` со
+снапшотом) и GC снапшотов по `rollback_window`/N=3.

@@ -1,0 +1,87 @@
+# Декларация инстанса VictoriaLogs (vl1) на skld00.
+#
+# Подаётся напрямую:  incus-loc launch leap16-base vl1 < этот файл
+# и разбирается хостовым контуром: servers/skld00/reconcile.sh
+#
+# Раскладка: базовый образ — артефакт со склада (`leap16-base`, живёт на tank/incus),
+# данные — заранее созданный датасет `tank/vl-data` (recordsize=128K под логи),
+# Incus только монтирует его в инстанс. Тома внутри пула Incus не создаём:
+# у zfs-драйвера нет ключа `source`, подключить чужой датасет томом нельзя.
+name: vl1
+description: "VictoriaLogs (victorialogs-loc): приём и хранение логов"
+
+config:
+  # --- ресурсы ---
+  limits.cpu: "2"
+  limits.memory: 2GiB
+
+  # --- политика для хостового контура (см. «актуальная схема.md» в lxc-build) ---
+  user.role: victorialogs
+  user.package: victorialogs-loc
+  user.update_policy: inplace          # логи сохраняем, меняются версии пакетов
+  user.rollback_window: 24h            # сколько живут снапшоты после обновления
+  user.boot_marker: /run/lxc-boot-ok
+  user.healthcheck: "curl -fsS --max-time 5 http://127.0.0.1:9428/health >/dev/null && systemctl is-active --quiet victorialogs-loc"
+  user.data_dataset: tank/vl-data
+  user.data_mountpoint: /var/lib/victorialogs-loc
+  user.service_uid: "479"
+
+  # uid сервиса (479) совпадает с владельцем датасета на хосте: пара 479↔479 в idmap
+  # инстанса. Без неё unprivileged-инстанс видит корень датасета как nobody и не может
+  # в него писать. Альтернатива — `shift: "true"` на устройстве и владелец 100479 на
+  # хосте; выбран первый вариант: на диске обычный 479 (понятно `ls`, дружелюбно
+  # zfs send/syncoid), и он не требует idmapped-mount на ZFS.
+  raw.idmap: |
+    both 479 479
+
+  cloud-init.user-data: |
+    #cloud-config
+    # Сеть и имя держат образ (systemd-networkd + шаблон hostname) — задано в
+    # /etc/cloud/cloud.cfg.d/99-lxc.cfg базового образа, здесь не повторяется.
+    write_files:
+      - path: /etc/zypp/repos.d/zypper-sle-alexrus1234.repo
+        permissions: '0644'
+        content: |
+          [zypper-sle-alexrus1234]
+          name=zypper-sle-alexrus1234 (личный rpm-md, Хражевник)
+          baseurl=https://khrazhevnik.panelka.yadr01.internal/repo/zypper-sle-alexrus1234
+          enabled=1
+          autorefresh=0
+          type=rpm-md
+          gpgcheck=0
+    runcmd:
+      - |
+        set -euo pipefail
+        # 1. Доверие к Хражевнику и зеркало foundation лежат в образе — проверяем, а не надеемся.
+        test -f /etc/pki/trust/anchors/step-ca.crt
+        update-ca-certificates >/dev/null
+        test -f /etc/zypp/repos.d/khrazhevnik-leap16-oss.repo
+        # 2. Апстримных репозиториев в пути быть не должно.
+        if ls /etc/zypp/repos.d/openSUSE*.repo >/dev/null 2>&1; then
+          echo "в образе апстримный репозиторий — путь нарушен"; exit 1
+        fi
+        # 3. Сервис ставится из личного rpm-md.
+        zypper --non-interactive --gpg-auto-import-keys refresh
+        zypper --non-interactive install -y --no-recommends victorialogs-loc
+        systemctl enable --now victorialogs-loc
+        # 4. Критерий успеха — живой сервис, а не «cloud-init done»: при недоступном
+        #    репозитории статус тоже done, а пакета нет (замерено).
+        ok=0
+        for i in $(seq 1 30); do
+          if curl -fsS --max-time 3 http://127.0.0.1:9428/health >/dev/null 2>&1; then ok=1; break; fi
+          sleep 2
+        done
+        if [ "$ok" != 1 ]; then
+          echo "victorialogs-loc не отвечает на /health"
+          journalctl -u victorialogs-loc -n 50 --no-pager || true
+          exit 1
+        fi
+        echo "vl1: victorialogs-loc поднят и отвечает"
+
+devices:
+  # Данные — датасет хоста (не том внутри пула Incus): снапшоты и откат делает контур
+  # через zfs snapshot/rollback по user.data_dataset.
+  data:
+    type: disk
+    source: /tank/vl-data
+    path: /var/lib/victorialogs-loc

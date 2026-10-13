@@ -56,7 +56,9 @@
 | Хук | `sync-skld00`, `command-working-directory=/opt/appdata`, `execute-command=/opt/appdata/git-repo/servers/skld00/sync-state.sh` |
 | Конфиг webhook | `/opt/appdata/config/webhook/hooks.json` (0600), юнит `/etc/systemd/system/webhook.service`, порт `9002` |
 | Декларации сервисов | `servers/skld00/services/<имя>.yaml` — формат в `services/README.md` |
-| Применение | `reconcile.sh` — шаг 1: перечисление и проверка окружения; шаг 2: создание/применение инстансов |
+| Применение | `reconcile.sh`: создание инстанса по декларации + health-gate; скалярные правки — `incus config set` живьём; смена состава — сообщает «нужен recreate» (путь recreate — следующий шаг) |
+| Выключатель автоматики | файл `/etc/lxc-automation.off`: пока он есть, `reconcile.sh` ничего не меняет (только отчёт) — отладочный этап, первый запуск делается руками (см. `services/README.md`) |
+| Отчёт | строки в `/var/lib/lxc-update/status`: имя, действие, результат, подробности, длительность |
 
 Для регистрации хука в Forgejo: репозиторий `AlexRus1234/homelab-deploy` → Settings → Webhooks →
 Add webhook (Gitea) → URL `http://172.20.50.1:9002/hooks/sync-skld00`, тот же secret, событие
