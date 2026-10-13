@@ -3,9 +3,12 @@
 #
 # Вызывается из `sync-state.sh` (аргументы — старый и новый git-хеш) и вручную.
 #
-# Что делает сейчас:
-#   * создаёт отсутствующий инстанс по декларации и проверяет результат
-#     (маркер загрузки → состояние systemd → проба сервиса из user.healthcheck);
+# Что делает:
+#   * данные: владельца датасета выставляет в ХОСТОВОЙ номер, соответствующий uid сервиса
+#     внутри контейнера (у нас 100000+uid). Число не хардкодится, а считается из живой карты
+#     инстанса — см. host_owner ниже;
+#   * создаёт отсутствующий инстанс: create → владелец данных → start → ожидание cloud-init
+#     → health-gate (маркер загрузки → systemd → проба сервиса из user.healthcheck);
 #   * применяет живьём скалярные ключи `config:` (limits.*, user.*) через `incus config set`;
 #   * если менялся СОСТАВ (devices, raw.idmap, cloud-init.user-data) — ничего не трогает
 #     и сообщает, что нужен recreate (путь recreate со снапшотом тома — следующий шаг).
@@ -29,6 +32,59 @@ record() { # имя, действие, результат, подробност�
     mkdir -p "$STATE_DIR" 2>/dev/null || true
     printf '%s\t%s\t%s\t%s\t%ss\n' "$1" "$2" "$3" "$4" \
         "$(( $(date +%s) - STARTED ))" >> "$STATE_DIR/status" 2>/dev/null || true
+}
+
+# --- карта uid ---------------------------------------------------------------
+# Хостовая сторона uid сервиса: Hostid + (uid - Nsid) по записи uid из volatile.idmap.next.
+# NOT volatile.idmap.base: там лежит 0 (сторона пространства имён), хостовая база живёт
+# именно в volatile.idmap.next как Hostid (проверено на живом Incus: Hostid=100000 при uid 479
+# даёт владельца 100479, и сервис внутри пишет в такой датасет без ошибок).
+host_owner() {
+    local inst="$1" uid="$2" map entry nsid hostid range
+    map=$(incus-loc config get "$inst" volatile.idmap.next 2>/dev/null) || return 1
+    [ -n "$map" ] || return 1
+    while IFS= read -r entry; do
+        case "$entry" in *'"Isuid":true'*) ;; *) continue ;; esac
+        case "$entry" in *'"Isgid":true'*) continue ;; esac
+        nsid=$(printf '%s' "$entry"    | sed -n 's/.*"Nsid":\([0-9-]*\).*/\1/p')
+        hostid=$(printf '%s' "$entry"  | sed -n 's/.*"Hostid":\([0-9-]*\).*/\1/p')
+        range=$(printf '%s' "$entry"   | sed -n 's/.*"Maprange":\([0-9-]*\).*/\1/p')
+        [ -n "$nsid" ] && [ -n "$hostid" ] && [ -n "$range" ] || continue
+        if [ "$uid" -ge "$nsid" ] && [ "$uid" -lt "$((nsid + range))" ]; then
+            printf '%s\n' "$((hostid + uid - nsid))"
+            return 0
+        fi
+    done < <(printf '%s\n' "$map" | sed 's/},{/\n/g')
+    return 1
+}
+
+# Владелец данных на хосте. Идемпотентно: если уже правильно — не трогает.
+data_prep() { # инстанс, датасет, uid сервиса
+    local inst="$1" ds="$2" uid="$3" hostmp want have
+    [ -n "$ds" ] || return 0
+    if ! zfs list -H -o name "$ds" >/dev/null 2>&1; then
+        log "ОШИБКА: нет датасета $ds — его создаёт владелец (см. services/README.md)"
+        return 1
+    fi
+    hostmp=$(zfs get -H -o value mountpoint "$ds")
+    [ -n "$uid" ] || return 0
+    want=$(host_owner "$inst" "$uid") \
+        || { log "ОШИБКА: не смог вычислить хостового владельца для uid $uid по карте $inst"; return 1; }
+    have=$(stat -c %u "$hostmp" 2>/dev/null || echo "?")
+    if [ "$have" = "$want" ]; then
+        log "данные: владелец $hostmp = $want (хостовая сторона uid $uid) — ок"
+        return 0
+    fi
+    if [ "$DRY_RUN" = 1 ]; then
+        log "сделал бы: chown $want:$want $hostmp (сейчас владелец $have)"
+        return 0
+    fi
+    if chown "$want:$want" "$hostmp"; then
+        log "данные: владелец $hostmp: $have -> $want (хостовая сторона uid $uid)"
+        return 0
+    fi
+    log "ОШИБКА: не смог сменить владельца $hostmp на $want"
+    return 1
 }
 
 # --- проекции декларации -----------------------------------------------------
@@ -133,47 +189,34 @@ for f in "${files[@]}"; do
     h_scal=$(proj_scalars "$f" | hash16)
     log "--- $name (декларация: состав $h_rest, скаляры $h_scal)"
 
-    # 1. данные: датасет существует и принадлежит uid сервиса
-    if [ -n "$ds" ]; then
-        if ! zfs list -H -o name "$ds" >/dev/null 2>&1; then
-            log "ОШИБКА: нет датасета $ds — его создаёт владелец (см. services/README.md)"
-            record "$name" "create" "провал" "нет датасета $ds"; FAIL=1; continue
-        fi
-        hostmp=$(zfs get -H -o value mountpoint "$ds")
-        have=$(stat -c %u "$hostmp" 2>/dev/null || echo "?")
-        if [ -n "$uid" ] && [ "$have" != "$uid" ]; then
-            if [ "$DRY_RUN" = 1 ]; then
-                log "сделал бы: chown $uid:$uid $hostmp (сейчас владелец $have)"
-            else
-                if chown "$uid:$uid" "$hostmp"; then
-                    log "владелец $hostmp: $have -> $uid"
-                else
-                    log "ОШИБКА: не смог сменить владельца $hostmp"
-                    record "$name" "create" "провал" "chown $hostmp"; FAIL=1; continue
-                fi
-            fi
-        fi
-    fi
-
-    # 2. создание отсутствующего инстанса
+    # ---------------------------------------------------------------- создание
     if ! incus-loc info "$name" >/dev/null 2>&1; then
         if [ "$DRY_RUN" = 1 ]; then
-            log "сделал бы: incus-loc launch $BASE_ALIAS $name < $f"
+            log "сделал бы: incus-loc create $BASE_ALIAS $name < $f"
+            log "        затем: владелец $ds (Hostid+uid из карты инстанса) → incus-loc start"
             log "        затем: cloud-init status --wait и health-gate"
             continue
         fi
-        log "инстанса нет — создаю из $BASE_ALIAS"
-        if ! out=$(incus-loc launch "$BASE_ALIAS" "$name" < "$f" 2>&1); then
+        # create, а не launch: карта uid выделяется ПРИ СОЗДАНИИ, и без неё нельзя
+        # вычислить хостового владельца данных (а сменить владельца нужно до старта)
+        log "инстанса нет — создаю из $BASE_ALIAS (без запуска)"
+        if ! out=$(incus-loc create "$BASE_ALIAS" "$name" < "$f" 2>&1); then
             err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
-            log "ОШИБКА: launch не удался: $err"
-            record "$name" "create" "провал" "launch: $err"
-            # `launch` = создать И запустить: при провале старта инстанс остаётся созданным
-            # и остановленным, и повторный прогон увидит «инстанс есть». Говорим об этом прямо.
-            if incus-loc info "$name" >/dev/null 2>&1; then
-                log "    инстанс $name создан, но не запустился. Причину показывает:"
-                log "        incus-loc info --show-log $name"
-                log "    для чистой попытки: incus-loc delete $name --force, затем повторить прогон"
-            fi
+            log "ОШИБКА: create не удался: $err"
+            record "$name" "create" "провал" "create: $err"; FAIL=1; continue
+        fi
+        if ! data_prep "$name" "$ds" "$uid"; then
+            record "$name" "create" "провал" "данные: $ds"
+            log "    инстанс создан, но данные не готовы — разобраться и повторить"
+            FAIL=1; continue
+        fi
+        if ! out=$(incus-loc start "$name" 2>&1); then
+            err=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
+            log "ОШИБКА: start не удался: $err"
+            record "$name" "create" "провал" "start: $err"
+            log "    инстанс создан, но не запустился. Причину показывает:"
+            log "        incus-loc info --show-log $name"
+            log "    для чистой попытки: incus-loc delete $name --force, затем повторить прогон"
             FAIL=1; continue
         fi
         incus-loc exec "$name" -- cloud-init status --wait >/dev/null 2>&1 \
@@ -189,9 +232,13 @@ for f in "${files[@]}"; do
         continue
     fi
 
-    # 3. существующий инстанс: сравнение с последней применённой декларацией.
-    #    Записи может не быть, если предыдущее создание упало (инстанс остался жить) —
-    #    тогда доверять «раз инстанс есть, значит всё хорошо» нельзя: проверяем пробой.
+    # ------------------------------------------------------- уже существует
+    # данные проверяем на каждом прогоне: владелец мог разъехаться (пересоздание,
+    # переезд, смена карты) — это самопочинка, а не разовая настройка
+    data_prep "$name" "$ds" "$uid" || { record "$name" "apply" "провал" "данные: $ds"; FAIL=1; }
+
+    # записи может не быть, если предыдущее создание упало (инстанс остался жить) —
+    # тогда «раз инстанс есть, значит всё хорошо» доверять нельзя: проверяем пробой
     if [ ! -f "$applied" ]; then
         log "инстанс есть, записи о применённой декларации нет — проверяю, что он живой"
         if [ "$DRY_RUN" = 1 ]; then
@@ -221,7 +268,7 @@ for f in "${files[@]}"; do
         continue
     fi
 
-    # 4. изменились только скаляры — применяем живьём
+    # изменились только скаляры — применяем живьём
     changed=0
     while IFS='=' read -r k v; do
         [ -n "$k" ] || continue
