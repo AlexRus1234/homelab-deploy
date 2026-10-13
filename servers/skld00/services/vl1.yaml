@@ -28,9 +28,9 @@ config:
 
   # uid сервиса (479) совпадает с владельцем датасета на хосте: пара 479↔479 в idmap
   # инстанса. Без неё unprivileged-инстанс видит корень датасета как nobody и не может
-  # в него писать. Альтернатива — `shift: "true"` на устройстве и владелец 100479 на
-  # хосте; выбран первый вариант: на диске обычный 479 (понятно `ls`, дружелюбно
-  # zfs send/syncoid), и он не требует idmapped-mount на ZFS.
+  # в него писать. Пара 1:1 — правило узла по умолчанию; когда его брать, а когда
+  # `shift: "true"` — в services/README.md («Правило id-маппинга»).
+  # root внутри контейнера при этом остаётся 100000 на хосте, не 0.
   raw.idmap: |
     both 479 479
 
@@ -52,19 +52,32 @@ config:
     runcmd:
       - |
         set -euo pipefail
-        # 1. Доверие к Хражевнику и зеркало foundation лежат в образе — проверяем, а не надеемся.
+        # 1. uid сервиса фиксируем САМИ до установки пакета: пакет создаёт пользователя
+        #    без номера (`u victorialogs-loc - ...`), и sysusers выделил бы первый свободный.
+        #    Пара raw.idmap в декларации требует известного номера, поэтому объявляем его
+        #    явно — тем же форматом, что и «правильный» фикс в пакете. systemd-sysusers
+        #    есть всегда: systemd в базовом образе.
+        cat > /etc/sysusers.d/00-lxc-pin.conf <<'CONF'
+        u victorialogs-loc 479 "VictoriaLogs single-node (uid закреплён декларацией)" /var/lib/victorialogs-loc /usr/bin/nologin
+        CONF
+        systemd-sysusers /etc/sysusers.d/00-lxc-pin.conf
+        id -u victorialogs-loc | grep -qx 479          # номер занят внутри — падаем громко
+        # 2. Доверие к Хражевнику и зеркало foundation лежат в образе — проверяем, а не надеемся.
         test -f /etc/pki/trust/anchors/step-ca.crt
         update-ca-certificates >/dev/null
         test -f /etc/zypp/repos.d/khrazhevnik-leap16-oss.repo
-        # 2. Апстримных репозиториев в пути быть не должно.
+        # 3. Апстримных репозиториев в пути быть не должно.
         if ls /etc/zypp/repos.d/openSUSE*.repo >/dev/null 2>&1; then
           echo "в образе апстримный репозиторий — путь нарушен"; exit 1
         fi
-        # 3. Сервис ставится из личного rpm-md.
+        # 4. Сервис ставится из личного rpm-md.
         zypper --non-interactive --gpg-auto-import-keys refresh
         zypper --non-interactive install -y --no-recommends victorialogs-loc
         systemctl enable --now victorialogs-loc
-        # 4. Критерий успеха — живой сервис, а не «cloud-init done»: при недоступном
+        # 5. Владелец примонтированного датасета: tmpfiles.d пакета выставляет его по имени,
+        #    и через пару 1:1 он виден внутри как 479. Проверяем — иначе сервис не сможет писать.
+        test "$(stat -c %u /var/lib/victorialogs-loc)" = 479
+        # 6. Критерий успеха — живой сервис, а не «cloud-init done»: при недоступном
         #    репозитории статус тоже done, а пакета нет (замерено).
         ok=0
         for i in $(seq 1 30); do
@@ -76,7 +89,7 @@ config:
           journalctl -u victorialogs-loc -n 50 --no-pager || true
           exit 1
         fi
-        echo "vl1: victorialogs-loc поднят и отвечает"
+        echo "vl1: victorialogs-loc поднят и отвечает (uid $(id -u victorialogs-loc))"
 
 devices:
   # Данные — датасет хоста (не том внутри пула Incus): снапшоты и откат делает контур
