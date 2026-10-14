@@ -18,8 +18,10 @@
 #
 # Уборка (GC) — только НАШИ снапшоты и стоянки, и только когда живость доказана:
 #   * старше user.rollback_window (базово 24h) и не входят в N=3 самых свежих;
-#   * сервис запущен и серия успешных проб ≥ 3 (файл /var/lib/lxc-health.streak внутри);
+#   * сервис запущен и проба user.healthcheck проходит ПРЯМО СЕЙЧАС (три попытки с паузами);
 #   * иначе по этому сервису уборки нет вовсе — в отчёт пишется, почему.
+# Серия успешных проб внутри инстанса (/var/lib/lxc-health.streak) в отчёт попадает как справка,
+# но уборку не запирает: она сбрасывается перезапуском, а перезапуск делает как раз обновление.
 # Сервисы с политикой recreate ночной контур не трогает: они обновляются пересозданием
 # (reconcile.sh --recreate <имя>), об этом пишется строка в отчёт.
 
@@ -27,7 +29,6 @@ set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 
 N_KEEP=${N_KEEP:-3}            # сколько наших снапшотов держим на сервис
-STREAK_MIN=${STREAK_MIN:-3}    # серия успешных проб, после которой уборка разрешена
 LOCK=${LOCK:-$STATE_DIR/.lock} # тот же замок, что у reconcile.sh: одновременных прогонов нет
 METRICS=${METRICS:-/var/lib/node_exporter/textfile_collector/lxc.prom}
 DUP_TIMEOUT=${DUP_TIMEOUT:-1800}
@@ -225,17 +226,31 @@ update_one() { # имя, файл декларации
 # --- уборка ------------------------------------------------------------------
 
 gc_one() { # имя, файл декларации
-    local name="$1" f="$2" ds win state streak i nm age total
+    local name="$1" f="$2" ds win state streak hc alive=0 i nm age total
     ds=$(declared "$f" user.data_dataset)
+    hc=$(declared "$f" user.healthcheck)
     win=$(window_seconds "$(declared "$f" user.rollback_window)")
     state=$(incus-loc list "$name" -c s --format csv 2>/dev/null | head -1)
     streak=$(svc_streak "$name"); streak=${streak:-0}
 
-    if [ "$state" != "RUNNING" ] || [ "$streak" -lt "$STREAK_MIN" ]; then
-        log "уборка $name: не чищу — живость не доказана (состояние ${state:-?}, серия проб $streak < $STREAK_MIN)"
-        record "$name" "gc" "пропуск" "живость не доказана: ${state:-?}, серия $streak"
+    # Живость доказываем ЗДЕСЬ и СЕЙЧАС, а не исторической серией проб: серия сбрасывается
+    # перезапуском, а перезапуск — ровно то, что делает ночное обновление. Гейт по серии
+    # (≥ 3) запирал уборку навсегда: в 02:18 серия после перезапуска маленькая, и ни один
+    # снапшот не снимался. Проба идёт трижды с паузами; её успех заодно растит серию внутри
+    # инстанса (она осталась в отчёте как справка, но уборку больше не запирает).
+    if [ "$state" = "RUNNING" ]; then
+        if [ -n "$hc" ]; then
+            incus-loc exec "$name" -- /usr/local/sbin/lxc-healthcheck --command "$hc" --tries 3 --delay 2 >/dev/null 2>&1 && alive=1
+        else
+            alive=1
+        fi
+    fi
+    if [ "$alive" != 1 ]; then
+        log "уборка $name: не чищу — живость не доказана (состояние ${state:-?}, проба не прошла; серия проб $streak)"
+        record "$name" "gc" "пропуск" "живость не доказана: ${state:-?}, проба не прошла (серия $streak)"
         return 0
     fi
+    log "уборка $name: живость доказана пробой (состояние RUNNING, серия проб $streak) — можно чистить"
 
     # Снапшоты инстанса: держим N_KEEP самых свежих, остальное снимаем по возрасту.
     local -a snaps=()
