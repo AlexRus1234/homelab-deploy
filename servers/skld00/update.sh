@@ -91,10 +91,10 @@ wait_marker() { # инстанс, маркер, эталон (epoch), лимит
 }
 
 # Наши снапшоты инстанса (только свои префиксы), по возрастанию метки в имени.
-instance_snaps() { incus-loc snapshot list "$1" --format csv 2>/dev/null | awk -F, '$1 ~ /^(pre|update)-/{print $1}' | sort; }
+instance_snaps() { incus-loc snapshot list "$1" --format csv 2>/dev/null | awk -F, '$1 ~ /^(pre|update)-/{print $1}' | sort_by_stamp; }
 
-# Наши снапшоты датасета, по возрастанию возраста (свежие — в хвосте).
-dataset_snaps() { zfs list -H -t snapshot -o name "$1" 2>/dev/null | grep -E "@(pre|update|recreate|removed)-" | sort; }
+# Наши снапшоты датасета, по возрастанию метки в имени (свежие — в хвосте).
+dataset_snaps() { zfs list -H -t snapshot -o name "$1" 2>/dev/null | grep -E "@(pre|update|recreate|removed)-" | sort_by_stamp; }
 
 # --- откат -------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ rollback_one() { # имя, датасет, маркер, проба, метка 
         return 0
     fi
     if [ -z "$stamp" ]; then
-        stamp=$(incus-loc snapshot list "$name" --format csv 2>/dev/null | awk -F, '$1 ~ /^pre-/{print $1}' | sort | tail -1)
+        stamp=$(incus-loc snapshot list "$name" --format csv 2>/dev/null | awk -F, '$1 ~ /^pre-/{print $1}' | sort_by_stamp | tail -1)
         if [ -n "$stamp" ]; then
             log "$name: метки у флага нет — беру свежайший снапшот инстанса $stamp"
         else
