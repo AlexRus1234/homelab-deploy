@@ -461,7 +461,8 @@ cat /var/lib/node_exporter/textfile_collector/lxc.prom    # метрики (ес
   `incus-loc exec <имя> -- test -f /var/lib/lxc-update.pending` — оставшийся флаг уводит следующий ночной
   прогон в откат (ровно так и вышло 14.10: у `vl1` не было ни обновления, ни снапшота для откатa);
 - **провал `dup` и провал пробы** (ветки «обновление сломалось») на живом сервисе без риска не
-  репетируются — они проверены харнессом `update-test.sh` на заглушках (`incus-loc`/`zfs`).
+  репетируются — они проверены харнессом `servers/skld00/tests/update-test.sh` на заглушках
+  (`incus-loc`/`zfs`; узла не требует, гоняется любой машиной с bash).
 
 Перед любой репетицией полезно посмотреть план: `sudo bash /opt/appdata/git-repo/servers/skld00/update.sh --dry-run`.
 
