@@ -147,15 +147,29 @@ check   "4: правка ТОЛЬКО комментариев скаляры н
 say "5. инстанс есть, скаляры разошлись → в отчёте config set"
 export INCUS_EXISTS="$W/exists"; touch "$INCUS_EXISTS"
 printf '1GiB\n' > "$W/old"; export INCUS_OLDFILE="$W/old"
-bash -c ". '$REPO/servers/skld00/lib.sh'; printf '%s %s\n' \"\$(proj_rest '$SERV' | hash16)\" 0000000000000000" > "$S/state/applied/vl1"
+printf '1 %s %s\n' "$(hcomp "$SERV")" 0000000000000000 > "$S/state/applied/vl1"
 stage; bash "$R" > "$W/out" 2>&1
 grep -E "config set|владелец|ничего" "$W/out" | head -8 | sed 's/^/    /'
 has "5: план по лимитам"      "config set vl1 limits.cpu" "$W/out"
 has "5: план по healthcheck"  "config set vl1 user.healthcheck" "$W/out"
 nothas "5: пересоздания нет (меняли только скаляры)" "rename vl1" "$W/out"
 
+say "5б. версия определения проекций сменилась → хеши пересчитываются, пересоздания НЕТ"
+printf '%s %s\n' "$(hcomp "$SERV")" "$(hscal "$SERV")" > "$S/state/applied/vl1"    # старый формат: без версии
+rm -f "$W/off.flag"      # ветка живая (не план), иначе проверяли бы только текст плана
+stage; bash "$R" > "$W/out" 2>&1
+grep -E "версия|пересоздан|config set" "$W/out" | head -4 | sed 's/^/    /'
+echo "    --- запись состояния после прогона: $(cat "$S/state/applied/vl1")"
+has    "5б: о смене версии сказано в выводе" "версия определения проекций сменилась" "$W/out"
+has    "5б: в отчёте — «пересоздание не требовалось»" "пересоздание не требовалось" "$S/state/status"
+nothas "5б: пересоздания не было" "INCUS: rename" "$W/log"
+nothas "5б: скаляры не применялись (состояние принято как есть)" "INCUS: config set" "$W/log"
+check  "5б: первое поле записи — версия проекции" "1" "$(cut -d' ' -f1 "$S/state/applied/vl1")"
+check  "5б: запись состояния — из трёх полей" "3" "$(wc -w < "$S/state/applied/vl1" | tr -d ' ')"
+touch "$W/off.flag"      # дальше разделы снова смотрят план
+
 say "6. инстанс есть, состав изменился → пересоздание (в отчёте — план)"
-bash -c ". '$REPO/servers/skld00/lib.sh'; printf '%s %s\n' 1111111111111111 \"\$(proj_scalars '$SERV' | hash16)\"" > "$S/state/applied/vl1"
+printf '1 %s %s\n' 1111111111111111 "$(hscal "$SERV")" > "$S/state/applied/vl1"
 stage; bash "$R" > "$W/out" 2>&1
 grep -E "состав|пересоздание|сделал бы: zfs|rename" "$W/out" | head -6 | sed 's/^/    /'
 has    "6: в плане — снапшот данных" "zfs snapshot tank/vl-data@recreate-" "$W/out"
@@ -173,6 +187,7 @@ check   "7: порядок пересоздания" "ZFS: snapshot|INCUS: stop 
 nothas  "7: новый инстанс не удаляется (успешный путь)" "INCUS: delete" "$W/log"
 has     "7: владелец данных выставлен хостовой стороной uid" "CHOWN: 100478:100478 tank/vl-data" "$W/log"
 check   "7: в отчёте recreate ok" "ok" "$(status_field vl1 recreate 3 "$S/state/status")"
+check   "7: состояние записано с версией проекции" "1" "$(cut -d' ' -f1 "$S/state/applied/vl1")"
 
 say "8. файл отчёта (/var/lib/lxc-update/status)"
 sed 's/^/    /' "$S/state/status" 2>/dev/null

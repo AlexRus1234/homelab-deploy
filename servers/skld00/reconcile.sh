@@ -332,7 +332,7 @@ for f in "${files[@]}"; do
         # create, а не launch: карта uid выделяется ПРИ СОЗДАНИИ, и без неё нельзя вычислить
         # хостового владельца данных (а сменить владельца нужно до первого запуска сервиса)
         if create_instance "$name" "$f" "$ds" "$marker" "$hc" "$unit" "$user"; then
-            printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
+            applied_write "$applied" "$PROJECTION_VERSION" "$h_rest" "$h_scal"
             record "$name" "create" "ok" "инстанс создан из $BASE_ALIAS, uid $CREATED_UID"
         else
             record "$name" "create" "провал" "$LAST_ERROR"
@@ -367,7 +367,7 @@ for f in "${files[@]}"; do
             continue
         fi
         if recreate_instance "$name" "$f" "$ds" "$marker" "$hc" "$unit" "$user" "${1:-}"; then
-            printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
+            applied_write "$applied" "$PROJECTION_VERSION" "$h_rest" "$h_scal"
             record "$name" "recreate" "ok" "пересоздан по запросу (--recreate), uid $RECREATED_UID"
         else
             record "$name" "recreate" "провал" "$LAST_ERROR"
@@ -385,7 +385,7 @@ for f in "${files[@]}"; do
             continue
         fi
         if health_gate "$name" "$marker" "$hc"; then
-            printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
+            applied_write "$applied" "$PROJECTION_VERSION" "$h_rest" "$h_scal"
             record "$name" "adopt" "ok" "инстанс существовал без записи, проба прошла"
         else
             record "$name" "adopt" "провал" "инстанс есть, но пробу не прошёл"
@@ -395,7 +395,21 @@ for f in "${files[@]}"; do
         fi
         continue
     fi
-    read -r a_rest a_scal < "$applied"
+    # Смена версии определения проекций — это правка самого контура, а не декларации: сохранённые
+    # хеши несравнимы, и пересоздавать сервис из-за неё нельзя. Принимаем текущее состояние как
+    # применённое (запись в новом формате) и объявляем это в отчёте.
+    a_ver=""; a_rest=""; a_scal=""
+    read -r a_ver a_rest a_scal < <(applied_read "$applied")
+    if [ -n "$a_rest" ] && [ "$a_ver" != "$PROJECTION_VERSION" ]; then
+        log "версия определения проекций сменилась (в состоянии '${a_ver:--}', у контура $PROJECTION_VERSION) — хеши пересчитываю, пересоздание не требуется"
+        if [ "$DRY_RUN" = 1 ]; then
+            log "сделал бы: запись состояния в новом формате ($PROJECTION_VERSION $h_rest $h_scal), без пересоздания"
+            continue
+        fi
+        applied_write "$applied" "$PROJECTION_VERSION" "$h_rest" "$h_scal"
+        record "$name" "apply" "пропуск" "версия проекции сменилась (${a_ver:--} → $PROJECTION_VERSION): хеши пересчитаны, пересоздание не требовалось"
+        continue
+    fi
     if [ "$a_rest" = "$h_rest" ] && [ "$a_scal" = "$h_scal" ]; then
         log "изменений нет"
         continue
@@ -408,7 +422,7 @@ for f in "${files[@]}"; do
             continue
         fi
         if recreate_instance "$name" "$f" "$ds" "$marker" "$hc" "$unit" "$user" "${1:-}"; then
-            printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
+            applied_write "$applied" "$PROJECTION_VERSION" "$h_rest" "$h_scal"
             record "$name" "recreate" "ok" "пересоздан по новой декларации, uid $RECREATED_UID"
         else
             record "$name" "recreate" "провал" "$LAST_ERROR"
@@ -434,7 +448,7 @@ for f in "${files[@]}"; do
         fi
     done < <(proj_scalars "$f")
     if [ "$DRY_RUN" = 0 ]; then
-        printf '%s %s\n' "$h_rest" "$h_scal" > "$applied"
+        applied_write "$applied" "$PROJECTION_VERSION" "$h_rest" "$h_scal"
         record "$name" "apply" "ok" "скалярные ключи применены живьём (изменений: $changed)"
     fi
 done
