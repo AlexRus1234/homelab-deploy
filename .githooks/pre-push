@@ -1,0 +1,34 @@
+#!/bin/bash
+# Проверка контура ПЕРЕД пушем: три харнесса на заглушках. Красный — пуш не уходит.
+#
+# Включается ОДИН раз на клон (настройка репозиторная, другие репозитории машины не затрагивает):
+#     git config core.hooksPath .githooks
+# Осознанный обход: git push --no-verify
+#
+# Узла, root и сети не требует: харнессы подменяют incus-loc, zfs и chown своими заглушками.
+# Проверяется логика контура (проекции, парсеры, порядок команд, наборы «оставить/снести», флаги),
+# а не живое поведение Инкуса — за это отвечают живые репетиции и ночной прогон.
+
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 0
+[ -d servers/skld00/tests ] || exit 0          # не тот репозиторий — молча пропускаем
+
+fails=0
+for t in update-test reconcile-test remove-test; do
+    if out=$(bash "servers/skld00/tests/$t.sh" 2>&1); then
+        printf 'pre-push: %s — зелено\n' "$t"
+    else
+        fails=$((fails + 1))
+        printf '\npre-push: %s — КРАСНО\n' "$t"
+        printf '%s\n' "$out" | grep -E "FAIL|проверок|^=== " | tail -25
+    fi
+done
+
+if [ "$fails" -gt 0 ]; then
+    printf '\nПуш остановлен: харнессы контура красные (%s из 3).\n' "$fails"
+    printf 'Разбираться: bash servers/skld00/tests/<имя>.sh — вывод по секциям.\n'
+    printf 'Обойти осознанно: git push --no-verify\n'
+    exit 1
+fi
+
+printf 'pre-push: контур проверен, пуш разрешён\n'
+exit 0

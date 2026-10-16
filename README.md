@@ -43,6 +43,30 @@
 | 14 | [`14_SFTPGo_облако.md`](docs/Настройка/14_SFTPGo_облако.md) | Файловое облако поверх NAS: LXC, SSO (OIDC), SFTP |
 | 15 | [`15_PBS_сервер.md`](docs/Настройка/15_PBS_сервер.md) | PBS в LXC: datastore на SMB, GC/prune, бэкап самого PBS |
 
+## Проверки контура перед пушем
+
+Логика контура узла `skld00` (разбор деклараций, карта uid, чувствительность хешей, порядок команд
+обновления, откат, снятие, уборка) проверяется тремя харнессами на заглушках — узла, root и сети они не
+требуют:
+
+```sh
+bash servers/skld00/tests/update-test.sh       # ночной контур: обновление, откат, уборка
+bash servers/skld00/tests/reconcile-test.sh    # применение деклараций: create/recreate, хеши, uid
+bash servers/skld00/tests/remove-test.sh       # снятие по декларации, удалённой из git
+```
+
+Каждый печатает `ok`/`FAIL` по секциям и возвращает ненулевой код при первом расхождении. Чтобы это
+происходило **автоматически перед каждым пушем** (в том числе на свежем клоне на другой машине),
+включите хук — одна строка на клон:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+Настройка репозиторная (пишется в `.git/config`), другие репозитории машины не затрагивает; почему нельзя
+`--global` и что именно проверяется — в [`servers/skld00/tests/README.md`](servers/skld00/tests/README.md).
+Красный харнесс пуш не пускает; осознанный обход — `git push --no-verify`.
+
 ## Дерево репозитория
 
 ```
@@ -56,6 +80,9 @@ homelab-deploy/
 │       ├── yadr01-deploy-caddy.yml
 │       ├── yadr01-deploy-sftpgo.yml
 │       └── yadr01-panelka-webhook-deploy.yml
+│
+├── .githooks/
+│   └── pre-push                 # проверки контура перед пушем (включается: git config core.hooksPath .githooks)
 │
 ├── .gitattributes
 ├── .gitignore
@@ -157,7 +184,17 @@ homelab-deploy/
     └── skld00/                    # bare-metal узел: Incus-склад образов + инстансы
         ├── README.md              # роль узла: склад и GitOps-агент
         ├── sync-state.sh          # pull по webhook → reconcile
+        ├── lib.sh                 # общие части контура: разбор деклараций, карта uid, метки, отчёт
         ├── reconcile.sh           # приведение инстансов к services/*.yaml
+        ├── update.sh              # ночной контур: zypper dup в инстансах + уборка
+        ├── systemd/
+        │   ├── lxc-update.service # юнит ночного прогона
+        │   └── lxc-update.timer   # окно 02:00–03:00 (случайный сдвиг внутри часа)
+        ├── tests/                 # харнессы на заглушках: узла не требуют (см. tests/README.md)
+        │   ├── harness-lib.sh
+        │   ├── update-test.sh
+        │   ├── reconcile-test.sh
+        │   └── remove-test.sh
         └── services/
             ├── README.md          # формат деклараций инстансов
             ├── vl1.yaml           # VictoriaLogs  (:9428)
