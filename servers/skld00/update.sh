@@ -36,6 +36,7 @@ MARKER_WAIT=${MARKER_WAIT:-180}   # сколько ждём обновления
 PENDING=/var/lib/lxc-update.pending      # внутри инстанса
 OKDIR="$STATE_DIR/update-ok"             # время последнего успешного обновления по сервису
 RBDIR="$STATE_DIR/rollback-total"        # счётчик откатов по сервису
+DELFILE="$STATE_DIR/deleted-total"       # накопительный счётчик снятых объектов
 N_DEL=0
 
 usage() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; }
@@ -226,7 +227,7 @@ update_one() { # имя, файл декларации
 # --- уборка ------------------------------------------------------------------
 
 gc_one() { # имя, файл декларации
-    local name="$1" f="$2" ds win state streak hc alive=0 i nm age total
+    local name="$1" f="$2" ds win state streak hc alive=0 i nm age total before="$N_DEL"
     ds=$(declared "$f" user.data_dataset)
     hc=$(declared "$f" user.healthcheck)
     win=$(window_seconds "$(declared "$f" user.rollback_window)")
@@ -328,6 +329,17 @@ gc_one() { # имя, файл декларации
         fi
     done < <(incus-loc list -c n --format csv 2>/dev/null | grep -E "^${name}-pre-[0-9]{8}-[0-9]{6}$" | sort)
 
+    # Итог по сервису — В ОТЧЁТ, а не только в journal: иначе «работала ли уборка» видно лишь
+    # журналом. Пробный прогон ничего не пишет: он не убирал.
+    if [ "$DRY_RUN" != 1 ]; then
+        if [ "$(( N_DEL - before ))" -gt 0 ]; then
+            record "$name" "gc" "ok" "снято объектов: $(( N_DEL - before ))"
+            log "уборка $name: итог — снято объектов: $(( N_DEL - before ))"
+        else
+            record "$name" "gc" "ok" "снимать нечего (всё свежее окна или входит в N=$N_KEEP)"
+        fi
+    fi
+
     return 0
 }
 
@@ -351,7 +363,11 @@ metrics_write() {
             printf 'lxc_last_update_success_timestamp{instance="%s"} %s\n' "$name" "$ok"
             printf 'lxc_rollback_total{instance="%s"} %s\n' "$name" "$rb"
         done
-        printf 'lxc_snapshots_deleted_total %s\n' "$N_DEL"
+        # Две разные величины, и обе нужны: «за этот прогон» — gauge (сколько сняла именно эта
+        # уборка), «всего» — накопительный счётчик из файла состояния, по нему в мониторинге
+        # осмысленны rate()/increase().
+        printf 'lxc_snapshots_deleted_last_run %s\n' "$N_DEL"
+        printf 'lxc_snapshots_deleted_total %s\n' "${DEL_TOTAL:-0}"
     } > "$tmp" 2>/dev/null && mv "$tmp" "$METRICS" 2>/dev/null || rm -f "$tmp"
 }
 
@@ -404,6 +420,17 @@ if [ "$MODE" = "gc" ] || { [ "$MODE" = "update" ] && [ -z "$ONE" ]; }; then
         [ "$marker" = "$MANAGED_BY" ] || continue
         gc_one "$name" "$f"
     done
+fi
+
+# Счётчики уборки: накопительный живёт в файле состояния — иначе node_exporter видел бы то 4, то 0
+# и никакой rate() по нему не имел бы смысла. «За прогон» остаётся gauge.
+DEL_PREV=$(cat "$DELFILE" 2>/dev/null || echo 0)
+case "$DEL_PREV" in ''|*[!0-9]*) DEL_PREV=0 ;; esac
+DEL_TOTAL=$(( DEL_PREV + N_DEL ))
+if [ "$DRY_RUN" != 1 ]; then
+    printf '%s\n' "$DEL_TOTAL" > "$DELFILE" 2>/dev/null || true
+else
+    DEL_TOTAL=$DEL_PREV      # пробный прогон счётчик не двигает
 fi
 
 metrics_write

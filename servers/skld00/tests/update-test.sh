@@ -51,8 +51,8 @@ case "$1" in
   info) [ -f "$S/exists-$2" ] && exit 0 || exit 1 ;;
   list)
     if [ "$2" = "-c" ]; then   # без имени — перечисляем имена (скан стоянок)
-      for f in "$S"/exists-*; do [ -e "$f" ] && basename "$f" | sed 's/^exists-//'; done
-      echo "good-pre-20261001-010101"; echo "good-pre-20261013-150000"; exit 0
+      for f in "$S"/exists-* "$S"/parked-*; do [ -e "$f" ] && basename "$f" | sed -e 's/^exists-//' -e 's/^parked-//'; done
+      exit 0
     fi
     cat "$S/state-$2" 2>/dev/null || echo STOPPED; exit 0 ;;
   config) if [ "$2" = get ] && [ "$4" = user.managed-by ]; then cat "$S/marker-$3" 2>/dev/null; fi; exit 0 ;;
@@ -80,7 +80,7 @@ case "$1" in
       delete|restore) grep -vx "$snap" "$S/snaps-$inst" > "$S/.t" 2>/dev/null && mv "$S/.t" "$S/snaps-$inst" ;;
     esac
     exit 0 ;;
-  delete) rm -f "$S/exists-$3"; exit 0 ;;
+  delete) rm -f "$S/exists-$2" "$S/parked-$2"; exit 0 ;;
 esac
 exit 0
 EOF
@@ -106,6 +106,7 @@ export PATH="$BIN:$PATH"
 export REPO_DIR="$REPO" STATE_DIR="$S/state" OFF_FLAG="$W/off.flag" METRICS="$S/lxc.prom"
 
 for n in upd good sick halt; do touch "$S/exists-$n"; echo homelab-deploy/skld00 > "$S/marker-$n"; done
+touch "$S/parked-good-pre-20261001-010101" "$S/parked-good-pre-20261013-150000"   # стоянки: старая и свежая
 echo 5 > "$S/streak-good"; echo 1 > "$S/streak-sick"; echo 0 > "$S/streak-upd"; echo 9 > "$S/streak-halt"
 echo RUNNING > "$S/state-good"; echo RUNNING > "$S/state-sick"; echo RUNNING > "$S/state-upd"; echo STOPPED > "$S/state-halt"
 
@@ -160,6 +161,12 @@ echo "--- осталось у good (данные):"; sort "$S/zsnaps-tank_g-data
 echo "--- у sick (проба не проходит, не чистим):"; sort "$S/snaps-sick" | sed 's/^/    /'
 echo "--- у halt (STOPPED, не чистим):"; sort "$S/snaps-halt" | sed 's/^/    /'
 echo "--- метрики:"; sed 's/^/    /' "$S/lxc.prom"
+echo "--- что легло в отчёт по уборке:"; grep "gc" "$S/state/status" | sed 's/^/    /'
+
+say "E2. второй прогон уборки: снимать уже нечего → last_run=0, накопительный не растёт"
+stage; bash "$U" --gc-only >/dev/null 2>&1
+grep -E "deleted" "$S/lxc.prom" | sed 's/^/    /'
+echo "--- отчёт по уборке во втором прогоне:"; grep "gc" "$S/state/status" | tail -4 | sed 's/^/    /'
 
 say "F. выключатель автоматики: только отчёт + строки «пропуск» в отчёте"
 stage; touch "$W/off.flag"

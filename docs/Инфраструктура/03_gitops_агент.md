@@ -177,5 +177,8 @@ systemctl is-system-running → проба user.healthcheck (повторы) →
 
 Отчёт — `/var/lib/lxc-update/status` (и journal юнита), метрики для node_exporter — `lxc.prom` в
 каталоге textfile-коллектора: `lxc_instance_health`, `lxc_health_streak`,
-`lxc_last_update_success_timestamp`, `lxc_rollback_total`, `lxc_snapshots_deleted_total`. Обновление и
+`lxc_last_update_success_timestamp`, `lxc_rollback_total`, `lxc_snapshots_deleted_last_run` (за этот
+прогон) и `lxc_snapshots_deleted_total` (накопительный). Итог уборки по сервису пишется и в файл
+отчёта (`gc ok снято объектов: N` / `gc ok снимать нечего`) — чтобы «работала ли уборка» не требовало
+journal. Обновление и
 применение деклараций идут по одному замку (`/var/lib/lxc-update/.lock`) — одновременно они не работают.
