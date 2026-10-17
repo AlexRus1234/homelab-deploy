@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>AlexRus1234</title>
+<meta name="description" content="Домашний ЦОД: сервисы, доступы, железо">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+<style>
+  :root{
+    --bg:#0b0f17; --bg2:#0e1420;
+    --card:rgba(255,255,255,.045); --card-hi:rgba(255,255,255,.075);
+    --border:rgba(255,255,255,.10); --border-hi:rgba(255,255,255,.22);
+    --fg:#e9eef7; --muted:#94a3b8; --accent:#6ee7ff; --accent2:#a78bfa;
+    --radius:16px; --maxw:1080px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f6f8fc; --bg2:#eef2f9;
+      --card:rgba(255,255,255,.75); --card-hi:#ffffff;
+      --border:rgba(15,23,42,.10); --border-hi:rgba(15,23,42,.22);
+      --fg:#0f172a; --muted:#5b6b82; --accent:#0ea5e9; --accent2:#7c3aed;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg); min-height:100vh;
+    font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  /* фоновые пятна */
+  .glow{position:fixed; inset:-20vmax; z-index:0; pointer-events:none; filter:blur(60px); opacity:.55}
+  .glow i{position:absolute; display:block; width:46vmax; height:46vmax; border-radius:50%;
+    background:radial-gradient(circle at 50% 50%, var(--accent), transparent 62%);
+    animation:drift 26s ease-in-out infinite alternate}
+  .glow i:nth-child(2){background:radial-gradient(circle at 50% 50%, var(--accent2), transparent 62%);
+    right:0; bottom:0; animation-duration:32s; animation-direction:alternate-reverse}
+  .glow i:nth-child(1){left:0; top:0}
+  @keyframes drift{
+    from{transform:translate3d(0,0,0) scale(1)}
+    to{transform:translate3d(9vmax,-7vmax,0) scale(1.18)}
+  }
+  @media (prefers-reduced-motion: reduce){ .glow i{animation:none} }
+
+  .wrap{position:relative; z-index:1; max-width:var(--maxw); margin:0 auto; padding:clamp(28px,6vw,72px) 20px 64px}
+
+  header{display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:26px}
+  .avatar{
+    width:62px;height:62px;border-radius:20px;flex:0 0 auto;display:grid;place-items:center;
+    font-size:30px;border:1px solid var(--border-hi);
+    background:linear-gradient(140deg,var(--card-hi),var(--card));
+    box-shadow:0 10px 30px rgba(0,0,0,.25)
+  }
+  h1{margin:0;font-size:clamp(24px,4.4vw,38px);letter-spacing:-.02em;line-height:1.1}
+  .sub{margin:6px 0 0;color:var(--muted);font-size:15px}
+  .meta{margin-left:auto;color:var(--muted);font-size:13px;text-align:right}
+
+  .search{position:relative;margin:24px 0 34px;max-width:460px}
+  .search input{
+    width:100%;padding:13px 16px 13px 42px;border-radius:14px;color:var(--fg);
+    background:var(--card);border:1px solid var(--border);outline:none;font-size:15px;
+    transition:border-color .18s, box-shadow .18s, background .18s
+  }
+  .search input::placeholder{color:var(--muted)}
+  .search input:focus{border-color:var(--border-hi);background:var(--card-hi);box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent)}
+  .search span{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px}
+
+  section{margin-bottom:38px}
+  h2{margin:0 0 4px;font-size:15px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent)}
+  .note{margin:0 0 16px;color:var(--muted);font-size:13px}
+
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(258px,1fr))}
+
+  .card{
+    position:relative;display:flex;gap:14px;align-items:flex-start;padding:16px;
+    text-decoration:none;color:inherit;border-radius:var(--radius);
+    background:var(--card);border:1px solid var(--border);backdrop-filter:blur(8px);
+    transform:translateY(10px);opacity:0;
+    animation:in .5s cubic-bezier(.2,.7,.2,1) forwards;
+    transition:transform .2s cubic-bezier(.2,.7,.2,1), border-color .2s, background .2s, box-shadow .25s
+  }
+  @keyframes in{to{transform:none;opacity:1}}
+  @media (prefers-reduced-motion: reduce){ .card{animation:none;transform:none;opacity:1} }
+  .card:hover,.card:focus-visible{
+    transform:translateY(-3px);border-color:var(--border-hi);background:var(--card-hi);
+    box-shadow:0 14px 34px rgba(0,0,0,.28); outline:none
+  }
+  .card:hover .ico{transform:scale(1.08) rotate(-3deg)}
+  .ico{font-size:26px;line-height:1;flex:0 0 auto;transition:transform .25s cubic-bezier(.2,.7,.2,1)}
+  .txt{min-width:0}
+  .t{font-weight:600;letter-spacing:-.01em}
+  .u{margin-top:2px;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .d{margin-top:7px;color:var(--muted);font-size:13.5px}
+  .tags{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+  .tag{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+  .card:hover .tag{border-color:var(--border-hi)}
+
+  .copy{
+    position:absolute;top:10px;right:10px;width:28px;height:28px;display:grid;place-items:center;
+    border-radius:9px;border:1px solid transparent;background:transparent;color:var(--muted);
+    cursor:pointer;opacity:0;transition:opacity .18s, color .18s, border-color .18s, background .18s;font-size:14px
+  }
+  .card:hover .copy,.copy:focus-visible{opacity:1;border-color:var(--border);background:var(--card)}
+  .copy:hover{color:var(--accent)}
+
+  .empty{color:var(--muted);padding:14px 0}
+  footer{margin-top:56px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:5;
+    background:var(--card-hi);color:var(--fg);border:1px solid var(--border-hi);
+    padding:10px 16px;border-radius:12px;font-size:13.5px;opacity:0;pointer-events:none;
+    box-shadow:0 12px 30px rgba(0,0,0,.32);transition:opacity .22s, transform .22s
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div class="glow" aria-hidden="true"><i></i><i></i></div>
+
+<main class="wrap">
+  <header>
+    <div class="avatar" id="avatar">🚀</div>
+    <div>
+      <h1 id="title">Загрузка…</h1>
+      <p class="sub" id="subtitle"></p>
+    </div>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <div class="search">
+    <span aria-hidden="true">⌕</span>
+    <input id="q" type="search" placeholder="Фильтр: имя, описание, тег…" autocomplete="off" aria-label="Фильтр ссылок">
+  </div>
+
+  <div id="out"><p class="empty">Читаю links.json…</p></div>
+
+  <footer>
+    <span id="footer"></span>
+    <span id="count"></span>
+  </footer>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(async function () {
+  const out = document.getElementById('out');
+  const toast = document.getElementById('toast');
+  let data;
+
+  try {
+    const r = await fetch('links.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (e) {
+    out.innerHTML = '<p class="empty">Не удалось прочитать <b>links.json</b> (' + e.message +
+      '). Файл отдаётся тем же сервером, поэтому страница должна открываться по http(s), а не как file://</p>';
+    return;
+  }
+
+  const site = data.site || {};
+  const groups = (data.groups || []).map(g => ({
+    name: g.name || '', note: g.note || '', links: g.links || []
+  }));
+  const all = groups.flatMap(g => g.links);
+
+  document.title = site.title || document.title;
+  document.getElementById('title').textContent = site.title || '';
+  document.getElementById('subtitle').textContent = site.subtitle || '';
+  if (site.avatar) document.getElementById('avatar').textContent = site.avatar;
+  document.getElementById('footer').textContent = site.footer || '';
+  document.getElementById('count').textContent = all.length + ' ' + plural(all.length, 'ссылка', 'ссылки', 'ссылок');
+  document.getElementById('meta').innerHTML = site.meta ? site.meta : '';
+  out.innerHTML = '';
+
+  // рендер
+  let idx = 0;
+  groups.forEach(g => {
+    const sec = document.createElement('section');
+    const h = document.createElement('h2'); h.textContent = g.name; sec.appendChild(h);
+    if (g.note) { const n = document.createElement('p'); n.className = 'note'; n.textContent = g.note; sec.appendChild(n); }
+    const grid = document.createElement('div'); grid.className = 'grid';
+
+    g.links.forEach(l => {
+      const a = document.createElement('a');
+      a.className = 'card';
+      a.href = l.url;
+      a.rel = 'noopener';
+      a.style.animationDelay = Math.min(idx++ * 45, 700) + 'ms';
+      a.dataset.hay = [l.title, l.url, l.description, (l.tags || []).join(' ')].join(' ').toLowerCase();
+
+      const ico = document.createElement('div'); ico.className = 'ico'; ico.textContent = l.icon || '🔗';
+      const txt = document.createElement('div'); txt.className = 'txt';
+
+      const t = document.createElement('div'); t.className = 't'; t.textContent = l.title || l.url;
+      const u = document.createElement('div'); u.className = 'u'; u.textContent = pretty(l.url);
+      txt.append(t, u);
+
+      if (l.description) { const d = document.createElement('div'); d.className = 'd'; d.textContent = l.description; txt.appendChild(d); }
+      if (l.tags && l.tags.length) {
+        const tg = document.createElement('div'); tg.className = 'tags';
+        l.tags.forEach(x => { const s = document.createElement('span'); s.className = 'tag'; s.textContent = x; tg.appendChild(s); });
+        txt.appendChild(tg);
+      }
+      a.append(ico, txt);
+
+      const c = document.createElement('button');
+      c.className = 'copy'; c.type = 'button'; c.textContent = '⧉';
+      c.title = 'Скопировать ссылку'; c.setAttribute('aria-label', 'Скопировать ' + l.url);
+      c.addEventListener('click', async ev => {
+        ev.preventDefault(); ev.stopPropagation();
+        try { await navigator.clipboard.writeText(l.url); say('Ссылка скопирована'); }
+        catch { say('Не удалось скопировать'); }
+      });
+      a.appendChild(c);
+
+      grid.appendChild(a);
+    });
+
+    sec.appendChild(grid);
+    out.appendChild(sec);
+  });
+
+  // фильтр
+  const q = document.getElementById('q');
+  q.addEventListener('input', () => {
+    const v = q.value.trim().toLowerCase();
+    out.querySelectorAll('section').forEach(sec => {
+      let shown = 0;
+      sec.querySelectorAll('.card').forEach(c => {
+        const hit = !v || c.dataset.hay.includes(v);
+        c.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      sec.style.display = shown ? '' : 'none';
+    });
+    document.getElementById('count').textContent = v ? 'найдено: ' + out.querySelectorAll('.card:not([style*="display: none"])').length : '';
+  });
+
+  function say(msg) {
+    toast.textContent = msg; toast.classList.add('on');
+    clearTimeout(say._t); say._t = setTimeout(() => toast.classList.remove('on'), 1600);
+  }
+  function pretty(u) {
+    try { const x = new URL(u); return x.host + (x.pathname !== '/' ? x.pathname : ''); }
+    catch { return u; }
+  }
+  function plural(n, a, b, c) {
+    const m = n % 100, k = n % 10;
+    if (m > 10 && m < 20) return c;
+    if (k === 1) return a;
+    if (k > 1 && k < 5) return b;
+    return c;
+  }
+})();
+</script>
+</body>
+</html>

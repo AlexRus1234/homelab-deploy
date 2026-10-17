@@ -1,0 +1,98 @@
+{
+  "site": {
+    "title": "AlexRus1234",
+    "subtitle": "Домашний ЦОД: сервисы, доступы, железо",
+    "footer": "Статика, Caddy · содержимое — links.json"
+  },
+  "groups": [
+    {
+      "name": "Публичные сервисы",
+      "note": "доступны из интернета",
+      "links": [
+        {
+          "title": "Element",
+          "url": "https://element.alexrus1234.ru",
+          "icon": "💬",
+          "description": "Matrix-клиент",
+          "tags": ["matrix", "чат"]
+        },
+        {
+          "title": "Matrix",
+          "url": "https://matrix.alexrus1234.ru",
+          "icon": "🔗",
+          "description": "Homeserver Synapse (клиентский API, well-known)",
+          "tags": ["matrix"]
+        },
+        {
+          "title": "SFTPGo",
+          "url": "https://sftpgo.alexrus1234.ru",
+          "icon": "☁️",
+          "description": "Файловое облако: web, WebDAV, SFTP",
+          "tags": ["файлы", "облако"]
+        },
+        {
+          "title": "Forgejo",
+          "url": "https://git.alexrus1234.ru",
+          "icon": "🧭",
+          "description": "Свой Git: репозитории, реестр образов, пакеты",
+          "tags": ["git", "ci"]
+        }
+      ]
+    },
+    {
+      "name": "Домашняя сеть",
+      "note": "из LAN или через VPN",
+      "links": [
+        {
+          "title": "Homepage",
+          "url": "https://homepage.obshaga.yadr00.internal",
+          "icon": "🚀",
+          "description": "Стартовый дашборд со статусом сервисов",
+          "tags": ["дашборд"]
+        },
+        {
+          "title": "Proxmox YADR00",
+          "url": "https://proxmox.yadr00.internal",
+          "icon": "🖥️",
+          "description": "Гипервизор #1: Forgejo, Caddy, Authentik, obshaga",
+          "tags": ["гипервизор", "pve"]
+        },
+        {
+          "title": "Proxmox YADR01",
+          "url": "https://proxmox.yadr01.internal",
+          "icon": "🖥️",
+          "description": "Гипервизор #2: PBS, synapse, sftpgo, panelka",
+          "tags": ["гипервизор", "pve"]
+        },
+        {
+          "title": "Memos",
+          "url": "https://memos.obshaga.yadr00.internal",
+          "icon": "📝",
+          "description": "Заметки (мобильный клиент — MoeMemos через Mortis)",
+          "tags": ["заметки"]
+        },
+        {
+          "title": "Хражевник",
+          "url": "https://khrazhevnik.panelka.yadr01.internal",
+          "icon": "🧰",
+          "description": "Кеш-прокси и зеркало linux-репозиториев",
+          "tags": ["пакеты", "зеркало"]
+        },
+        {
+          "title": "NORA",
+          "url": "https://nora.panelka.yadr01.internal",
+          "icon": "📦",
+          "description": "Pull-through кеш для npm, go, OCI-образов",
+          "tags": ["кэш", "registry"]
+        },
+        {
+          "title": "Proxmox Backup Server",
+          "url": "https://pbs.yadr01.internal",
+          "icon": "💾",
+          "description": "Бэкапы хостов и гостей",
+          "tags": ["бэкап"]
+        }
+      ]
+    }
+  ]
+}
