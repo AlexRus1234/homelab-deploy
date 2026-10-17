@@ -12,6 +12,15 @@
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 0
 [ -d servers/skld00/tests ] || exit 0          # не тот репозиторий — молча пропускаем
 
+# Абсолютная дата в фикстуре — отложенная краснота: она зеленеет в день написания и падает через сутки
+# (окно удержания 24h), валя при этом чужие пуши. Время в тестах строится только через stamp_ago.
+if bad=$(grep -nE '(^|[^0-9])20[0-9]{6}-[0-9]{6}' servers/skld00/tests/*.sh); then
+    printf 'pre-push: в tests/ абсолютная метка времени — фикстуры должны строиться от «сейчас»:\n'
+    printf '%s\n' "$bad" | sed 's/^/    /'
+    printf 'Заменить на stamp_ago <секунд> (harness-lib.sh). Обойти осознанно: git push --no-verify\n'
+    exit 1
+fi
+
 fails=0
 for t in update-test reconcile-test remove-test; do
     if out=$(bash "servers/skld00/tests/$t.sh" 2>&1); then

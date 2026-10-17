@@ -110,7 +110,9 @@ export PATH="$BIN:$PATH"
 export REPO_DIR="$REPO" STATE_DIR="$S/state" OFF_FLAG="$W/off.flag" METRICS="$S/lxc.prom"
 
 for n in upd good sick halt; do touch "$S/exists-$n"; echo homelab-deploy/skld00 > "$S/marker-$n"; done
-touch "$S/parked-good-pre-20261001-010101" "$S/parked-good-pre-20261013-150000" "$S/parked-good-pre-20261016-050000"   # стоянки: две старше окна, одна свежая
+# Стоянки: возрасты ОТНОСИТЕЛЬНО «сейчас» (правило в harness-lib.sh) — две старше окна 24h, одна внутри.
+p_old=$(stamp_ago 172800); p_mid=$(stamp_ago 100000); p_fresh=$(stamp_ago 7200)
+touch "$S/parked-good-pre-$p_old" "$S/parked-good-pre-$p_mid" "$S/parked-good-pre-$p_fresh"
 echo 5 > "$S/streak-good"; echo 1 > "$S/streak-sick"; echo 0 > "$S/streak-upd"; echo 9 > "$S/streak-halt"
 echo RUNNING > "$S/state-good"; echo RUNNING > "$S/state-sick"; echo RUNNING > "$S/state-upd"; echo STOPPED > "$S/state-halt"
 
@@ -175,16 +177,24 @@ check "D: zypper не вызывался" "0" "$(grep -c timeout "$W/log")"
 check "D: в отчёте провал с откатом" "провал" "$(status_field upd update 3 "$S/state/status")"
 
 say "E. уборка: живой чистится (N=3, окно 24h + стоянки), лежащий и нездоровый — нет"
-# good: снапшоты с РАЗНЫМИ префиксами (pre-/update-/recreate-) — «свежесть» считается по метке
-# внутри имени, а не по имени целиком; sick: проба падает; halt: STOPPED
+# good: снапшоты с РАЗНЫМИ префиксами (pre-/update-) — «свежесть» считается по метке внутри имени,
+# а не по имени целиком, и update-<самый старый> по имени оказался бы «самым свежим»; sick: проба
+# падает; halt: STOPPED. Чужой для инстанса префикс (recreate- — это имя снапшота ДАТАСЕТА) лежит
+# рядом и трогать его нельзя. Возрасты — через stamp_ago, все старше окна: решает N=3.
+g1=$(stamp_ago 5000000); g2=$(stamp_ago 4200000); g3=$(stamp_ago 3600000); g4=$(stamp_ago 3000000); g5=$(stamp_ago 2400000)
+gx=$(stamp_ago 5100000)     # не наш префикс для инстанса: самый старый объект, но снимать его нельзя
 : > "$S/snaps-good"
-for t in update-20261009-010101 pre-20261010-010101 pre-20261011-010101 pre-20261012-010101 pre-20261014-010101; do echo "$t" >> "$S/snaps-good"; done
+for t in "update-$g1" "pre-$g2" "pre-$g3" "pre-$g4" "pre-$g5" "recreate-$gx"; do echo "$t" >> "$S/snaps-good"; done
+d1=$(stamp_ago 4900000); d2=$(stamp_ago 4100000); d3=$(stamp_ago 3500000); d4=$(stamp_ago 2900000); d5=$(stamp_ago 2300000)
 : > "$S/zsnaps-tank_g-data"
-for t in recreate-20261010-010101 pre-20261011-010101 recreate-20261012-010101 pre-20261013-010101 pre-20261014-010101; do echo "tank/g-data@$t" >> "$S/zsnaps-tank_g-data"; done
-: > "$S/snaps-sick"; echo "pre-20261010-010101" >> "$S/snaps-sick"
+for t in "recreate-$d1" "pre-$d2" "recreate-$d3" "pre-$d4" "pre-$d5"; do echo "tank/g-data@$t" >> "$S/zsnaps-tank_g-data"; done
+s1=$(stamp_ago 4800000)
+: > "$S/snaps-sick"; echo "pre-$s1" >> "$S/snaps-sick"
+sz1=$(stamp_ago 4700000); sz2=$(stamp_ago 3900000); sz3=$(stamp_ago 3300000); sz4=$(stamp_ago 2700000); sz5=$(stamp_ago 2100000)
 : > "$S/zsnaps-tank_s-data"
-for t in 20261010-010101 20261011-010101 20261012-010101 20261013-010101 20261013-150000; do echo "tank/s-data@pre-$t" >> "$S/zsnaps-tank_s-data"; done
-: > "$S/snaps-halt"; echo "pre-20261010-010101" >> "$S/snaps-halt"
+for t in "$sz1" "$sz2" "$sz3" "$sz4" "$sz5"; do echo "tank/s-data@pre-$t" >> "$S/zsnaps-tank_s-data"; done
+h1=$(stamp_ago 4600000)
+: > "$S/snaps-halt"; echo "pre-$h1" >> "$S/snaps-halt"
 stage; bash "$U" --gc-only 2>&1 | sed 's/^/    /'
 echo "--- осталось у good (инстанс):"; sort "$S/snaps-good" | sed 's/^/    /'
 echo "--- осталось у good (данные):"; sort "$S/zsnaps-tank_g-data" | sed 's/^/    /'
@@ -192,15 +202,24 @@ echo "--- у sick (проба не проходит, не чистим):"; sort 
 echo "--- у halt (STOPPED, не чистим):"; sort "$S/snaps-halt" | sed 's/^/    /'
 echo "--- метрики:"; sed 's/^/    /' "$S/lxc.prom"
 echo "--- что легло в отчёт по уборке:"; grep "gc" "$S/state/status" | sed 's/^/    /'
+# Посылки фикстуры проверяются отдельно: тогда «гниение» теста выглядит как гниение теста, а не как
+# поломка контура (именно так и вышло, когда «свежая» стоянка пережила окно удержания).
+check "E: посылка — «свежая» стоянка внутри окна 24h" "да" \
+    "$([ "$(stamp_age "$p_fresh")" -lt 86400 ] && echo да || echo нет)"
+check "E: посылка — снимаемые стоянки старше окна 24h" "да" \
+    "$([ "$(stamp_age "$p_old")" -gt 86400 ] && [ "$(stamp_age "$p_mid")" -gt 86400 ] && echo да || echo нет)"
 check "E: у живого сервиса остались три САМЫХ СВЕЖИХ снапшота инстанса" \
-    "pre-20261011-010101 pre-20261012-010101 pre-20261014-010101" "$(lines "$S/snaps-good")"
+    "pre-$g3 pre-$g4 pre-$g5 recreate-$gx" "$(lines "$S/snaps-good")"
+nothas "E: чуждый инстансу префикс (recreate-) не снимаем" "INCUS: snapshot delete good recreate-$gx" "$W/log"
 check "E: и три самых свежих снапшота данных" \
-    "tank/g-data@pre-20261013-010101 tank/g-data@pre-20261014-010101 tank/g-data@recreate-20261012-010101" "$(lines "$S/zsnaps-tank_g-data")"
-check "E: у нездорового (проба падает) ничего не тронуто" "pre-20261010-010101" "$(lines "$S/snaps-sick")"
-check "E: у лежащего (STOPPED) ничего не тронуто" "pre-20261010-010101" "$(lines "$S/snaps-halt")"
-has    "E: стоянка старше окна снята" "INCUS: delete good-pre-20261001-010101" "$W/log"
-has    "E: вторая стоянка старше окна снята" "INCUS: delete good-pre-20261013-150000" "$W/log"
-nothas "E: свежая стоянка не тронута" "INCUS: delete good-pre-20261016-050000" "$W/log"
+    "tank/g-data@pre-$d4 tank/g-data@pre-$d5 tank/g-data@recreate-$d3" "$(lines "$S/zsnaps-tank_g-data")"
+check "E: у нездорового (проба падает) ничего не тронуто" "pre-$s1" "$(lines "$S/snaps-sick")"
+check "E: у нездорового не тронуты и снапшоты данных" \
+    "tank/s-data@pre-$sz1 tank/s-data@pre-$sz2 tank/s-data@pre-$sz3 tank/s-data@pre-$sz4 tank/s-data@pre-$sz5" "$(lines "$S/zsnaps-tank_s-data")"
+check "E: у лежащего (STOPPED) ничего не тронуто" "pre-$h1" "$(lines "$S/snaps-halt")"
+has    "E: стоянка старше окна снята" "INCUS: delete good-pre-$p_old" "$W/log"
+has    "E: вторая стоянка старше окна снята" "INCUS: delete good-pre-$p_mid" "$W/log"
+nothas "E: свежая стоянка не тронута" "INCUS: delete good-pre-$p_fresh" "$W/log"
 check "E: итог уборки в отчёте" "снято объектов: 6" "$(status_field good gc 4 "$S/state/status")"
 check "E: метрика за этот прогон" "6" "$(met lxc_snapshots_deleted_last_run)"
 check "E: накопительная метрика" "6" "$(met lxc_snapshots_deleted_total)"
