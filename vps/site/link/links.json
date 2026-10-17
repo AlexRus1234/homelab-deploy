@@ -1,96 +1,239 @@
 {
   "site": {
     "title": "AlexRus1234",
-    "subtitle": "Домашний ЦОД: сервисы, доступы, железо",
-    "footer": "Статика, Caddy · содержимое — links.json"
+    "avatar": "🐴",
+    "subtitle": "Самохостинг и HomeLab: видео, код, сообщество",
+    "footer": "Статика, Caddy · всё правится в links.json"
   },
   "groups": [
     {
-      "name": "Публичные сервисы",
-      "note": "доступны из интернета",
+      "name": "Видео",
+      "note": "выпуски проекта на четырёх площадках",
       "links": [
         {
-          "title": "Element",
-          "url": "https://element.alexrus1234.ru",
-          "icon": "💬",
-          "description": "Matrix-клиент",
-          "tags": ["matrix", "чат"]
+          "title": "YouTube",
+          "url": "https://www.youtube.com/channel/UCdarzc1p7wqZK51rYZIoImw",
+          "icon": "🎬",
+          "description": "Основной канал с выпусками",
+          "tags": ["видео", "youtube"]
         },
         {
-          "title": "Matrix",
-          "url": "https://matrix.alexrus1234.ru",
-          "icon": "🔗",
-          "description": "Homeserver Synapse (клиентский API, well-known)",
-          "tags": ["matrix"]
+          "title": "Rutube",
+          "url": "https://rutube.ru/channel/33264914/",
+          "icon": "📺",
+          "description": "Зеркало канала",
+          "tags": ["видео", "rutube"]
         },
         {
-          "title": "SFTPGo",
-          "url": "https://sftpgo.alexrus1234.ru",
-          "icon": "☁️",
-          "description": "Файловое облако: web, WebDAV, SFTP",
-          "tags": ["файлы", "облако"]
+          "title": "Дзен",
+          "url": "https://dzen.ru/alexrus1234",
+          "icon": "📰",
+          "description": "Зеркало канала",
+          "tags": ["видео", "дзен"]
         },
         {
-          "title": "Forgejo",
-          "url": "https://git.alexrus1234.ru",
-          "icon": "🧭",
-          "description": "Свой Git: репозитории, реестр образов, пакеты",
-          "tags": ["git", "ci"]
+          "title": "VK Видео",
+          "url": "https://vkvideo.ru/@club195345569",
+          "icon": "🎞️",
+          "description": "Видео в сообществе ВКонтакте",
+          "tags": ["видео", "vk"]
         }
       ]
     },
     {
-      "name": "Домашняя сеть",
-      "note": "из LAN или через VPN",
+      "name": "Сообщество",
+      "note": "анонсы, обсуждения, чат",
       "links": [
         {
-          "title": "Homepage",
-          "url": "https://homepage.obshaga.yadr00.internal",
-          "icon": "🚀",
-          "description": "Стартовый дашборд со статусом сервисов",
-          "tags": ["дашборд"]
+          "title": "Telegram",
+          "url": "https://t.me/AlexRus1234Chanel",
+          "icon": "✈️",
+          "description": "Анонсы выпусков и обсуждения",
+          "tags": ["телеграм", "чат"]
         },
         {
-          "title": "Proxmox YADR00",
-          "url": "https://proxmox.yadr00.internal",
-          "icon": "🖥️",
-          "description": "Гипервизор #1: Forgejo, Caddy, Authentik, obshaga",
-          "tags": ["гипервизор", "pve"]
+          "title": "Matrix — прямое приглашение",
+          "url": "https://matrix.to/#/#alexrus1234:matrix.alexrus1234.ru",
+          "icon": "🔗",
+          "description": "Пространство проекта: откроется в любом Matrix-клиенте",
+          "tags": ["matrix", "space"]
         },
         {
-          "title": "Proxmox YADR01",
-          "url": "https://proxmox.yadr01.internal",
-          "icon": "🖥️",
-          "description": "Гипервизор #2: PBS, synapse, sftpgo, panelka",
-          "tags": ["гипервизор", "pve"]
+          "title": "Matrix — через мой Element",
+          "url": "https://element.alexrus1234.ru/#/space/#alexrus1234:matrix.alexrus1234.ru",
+          "icon": "💬",
+          "description": "То же пространство, но сразу в клиенте на своём сервере",
+          "tags": ["matrix", "element"]
+        }
+      ]
+    },
+    {
+      "name": "Команды",
+      "note": "AlexRus1234-HomeLab-Commands · оригинал на своём сервере, остальное — авто-зеркала",
+      "links": [
+        {
+          "title": "Оригинал",
+          "url": "https://git.alexrus1234.ru/AlexRus1234/AlexRus1234-HomeLab-Commands",
+          "icon": "🏠",
+          "description": "Скрипты, конфиги и команды из выпусков",
+          "tags": ["git", "оригинал"]
         },
         {
-          "title": "Memos",
-          "url": "https://memos.obshaga.yadr00.internal",
-          "icon": "📝",
-          "description": "Заметки (мобильный клиент — MoeMemos через Mortis)",
-          "tags": ["заметки"]
+          "title": "GitHub",
+          "url": "https://github.com/AlexRus1234/AlexRus1234-HomeLab-Commands",
+          "icon": "🐙",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
         },
         {
-          "title": "Хражевник",
-          "url": "https://khrazhevnik.panelka.yadr01.internal",
-          "icon": "🧰",
-          "description": "Кеш-прокси и зеркало linux-репозиториев",
-          "tags": ["пакеты", "зеркало"]
+          "title": "Codeberg",
+          "url": "https://codeberg.org/AlexRus1234/AlexRus1234-HomeLab-Commands",
+          "icon": "⛰️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
         },
         {
-          "title": "NORA",
-          "url": "https://nora.panelka.yadr01.internal",
-          "icon": "📦",
-          "description": "Pull-through кеш для npm, go, OCI-образов",
-          "tags": ["кэш", "registry"]
+          "title": "Mos.Hub",
+          "url": "https://hub.mos.ru/AlexRUS1234/alexrus1234-homelab-commands",
+          "icon": "🏙️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        }
+      ]
+    },
+    {
+      "name": "homelab-deploy",
+      "note": "декларации инфраструктуры: quadlets, app-configs, GitOps-агент",
+      "links": [
+        {
+          "title": "Оригинал",
+          "url": "https://git.alexrus1234.ru/AlexRus1234/homelab-deploy",
+          "icon": "🏠",
+          "description": "Состояние узлов, из которого разворачивается лаба",
+          "tags": ["git", "оригинал"]
         },
         {
-          "title": "Proxmox Backup Server",
-          "url": "https://pbs.yadr01.internal",
-          "icon": "💾",
-          "description": "Бэкапы хостов и гостей",
-          "tags": ["бэкап"]
+          "title": "GitHub",
+          "url": "https://github.com/AlexRus1234/homelab-deploy",
+          "icon": "🐙",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        },
+        {
+          "title": "Codeberg",
+          "url": "https://codeberg.org/AlexRus1234/homelab-deploy",
+          "icon": "⛰️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        },
+        {
+          "title": "Mos.Hub",
+          "url": "https://hub.mos.ru/AlexRUS1234/homelab-deploy",
+          "icon": "🏙️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        }
+      ]
+    },
+    {
+      "name": "Intermasq",
+      "note": "модульный менеджер dnsmasq: статические записи и DHCP в веб-интерфейсе",
+      "links": [
+        {
+          "title": "Оригинал",
+          "url": "https://git.alexrus1234.ru/AlexRus1234/Intermasq",
+          "icon": "🏠",
+          "description": "Управление DNS и записями dnsmasq",
+          "tags": ["git", "оригинал"]
+        },
+        {
+          "title": "GitHub",
+          "url": "https://github.com/AlexRus1234/Intermasq",
+          "icon": "🐙",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        },
+        {
+          "title": "Codeberg",
+          "url": "https://codeberg.org/AlexRus1234/Intermasq",
+          "icon": "⛰️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        },
+        {
+          "title": "Mos.Hub",
+          "url": "https://hub.mos.ru/AlexRUS1234/intermasq",
+          "icon": "🏙️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        }
+      ]
+    },
+    {
+      "name": "Лентоводец",
+      "note": "управление ленточным стримером LTO-4 / LTO-5",
+      "links": [
+        {
+          "title": "Оригинал",
+          "url": "https://git.alexrus1234.ru/AlexRus1234/Lentovodets",
+          "icon": "🏠",
+          "description": "Программа для работы с ленточной библиотекой",
+          "tags": ["git", "оригинал"]
+        },
+        {
+          "title": "GitHub",
+          "url": "https://github.com/AlexRus1234/Lentovodets",
+          "icon": "🐙",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        },
+        {
+          "title": "Codeberg",
+          "url": "https://codeberg.org/AlexRus1234/Lentovodets",
+          "icon": "⛰️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        },
+        {
+          "title": "Mos.Hub",
+          "url": "https://hub.mos.ru/AlexRUS1234/lentovodets",
+          "icon": "🏙️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        }
+      ]
+    },
+    {
+      "name": "Хражевник",
+      "note": "кеш-прокси и зеркало репозиториев linux-дистрибутивов",
+      "links": [
+        {
+          "title": "Оригинал",
+          "url": "https://git.alexrus1234.ru/AlexRus1234/Khrazhevnik",
+          "icon": "🏠",
+          "description": "Кеш apt, rpm, pacman, apk, nix",
+          "tags": ["git", "оригинал"]
+        },
+        {
+          "title": "GitHub",
+          "url": "https://github.com/AlexRus1234/Khrazhevnik",
+          "icon": "🐙",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        },
+        {
+          "title": "Codeberg",
+          "url": "https://codeberg.org/AlexRus1234/Khrazhevnik",
+          "icon": "⛰️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
+        },
+        {
+          "title": "Mos.Hub",
+          "url": "https://hub.mos.ru/AlexRUS1234/khrazhevnik",
+          "icon": "🏙️",
+          "description": "Зеркало",
+          "tags": ["git", "зеркало"]
         }
       ]
     }

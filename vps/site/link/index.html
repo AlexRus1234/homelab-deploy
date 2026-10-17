@@ -171,7 +171,8 @@
   document.getElementById('subtitle').textContent = site.subtitle || '';
   if (site.avatar) document.getElementById('avatar').textContent = site.avatar;
   document.getElementById('footer').textContent = site.footer || '';
-  document.getElementById('count').textContent = all.length + ' ' + plural(all.length, 'ссылка', 'ссылки', 'ссылок');
+  const totalText = all.length + ' ' + plural(all.length, 'ссылка', 'ссылки', 'ссылок');
+  document.getElementById('count').textContent = totalText;
   document.getElementById('meta').innerHTML = site.meta ? site.meta : '';
   out.innerHTML = '';
 
@@ -189,7 +190,7 @@
       a.href = l.url;
       a.rel = 'noopener';
       a.style.animationDelay = Math.min(idx++ * 45, 700) + 'ms';
-      a.dataset.hay = [l.title, l.url, l.description, (l.tags || []).join(' ')].join(' ').toLowerCase();
+      a.dataset.hay = [g.name, l.title, l.url, l.description, (l.tags || []).join(' ')].join(' ').toLowerCase();
 
       const ico = document.createElement('div'); ico.className = 'ico'; ico.textContent = l.icon || '🔗';
       const txt = document.createElement('div'); txt.className = 'txt';
@@ -236,7 +237,9 @@
       });
       sec.style.display = shown ? '' : 'none';
     });
-    document.getElementById('count').textContent = v ? 'найдено: ' + out.querySelectorAll('.card:not([style*="display: none"])').length : '';
+    document.getElementById('count').textContent = v
+      ? 'найдено: ' + out.querySelectorAll('.card:not([style*="display: none"])').length
+      : totalText;
   });
 
   function say(msg) {
