@@ -297,6 +297,122 @@ fi
 [ "$DRY_RUN" = 1 ] && log "режим: отчёт (dry-run)"
 
 shopt -s nullglob
+# --- сети (бриджи) ------------------------------------------------------------
+# Сеть — такой же объект контура, как инстанс, и объявляется так же: файлом в `networks/`.
+# Порядок принципиален: сети приводятся ДО инстансов. Иначе декларация с устройством на
+# несуществующей сети падает внутри пересоздания — уже отставив рабочую стоянку в сторону,
+# то есть с простоем и откатом вместо внятной ошибки.
+#
+# Удаление сетей автоматически НЕ делаем: снос бриджа, к которому подключены живые инстансы,
+# роняет их молча. Наша сеть без декларации — только строка в отчёте, снимается руками
+# (`incus-loc network delete <имя>`).
+NET_MISSING=0
+
+reconcile_networks() { # декларации networks/*.yaml → живое состояние Incus
+    local d="$SUB/networks" f name type desc key val cur n
+    [ -d "$d" ] || return 0
+    for f in "$d"/*.yaml; do
+        [ -e "$f" ] || continue
+        name=$(basename "$f" .yaml)
+        type=$(declared "$f" type); type=${type:-bridge}
+        desc=$(declared "$f" description)
+        if ! incus-loc network show "$name" >/dev/null 2>&1; then
+            local -a args=()
+            while IFS= read -r kv; do [ -n "$kv" ] && args+=("$kv"); done < <(proj_scalars "$f")
+            args+=("user.managed-by=$MANAGED_BY")
+            if [ "$DRY_RUN" = 1 ]; then
+                log "сделал бы: incus-loc network create $name --type $type ${desc:+--description '$desc'} ${args[*]}"
+                continue
+            fi
+            if incus-loc network create "$name" --type "$type" ${desc:+--description "$desc"} "${args[@]}" >/dev/null 2>&1; then
+                log "сеть: создана $name ($type, объявленных ключей $((${#args[@]} - 1)) + маркер)"
+                record "$name" "network" "ok" "сеть создана: $type, ключей $((${#args[@]} - 1))"
+            else
+                log "ОШИБКА: не смог создать сеть $name"
+                record "$name" "network" "провал" "создание сети $name"
+                FAIL=1
+            fi
+            continue
+        fi
+        # сеть есть: приводим ОБЪЯВЛЕННЫЕ ключи, необъявленные не трогаем (чужие настройки — не наше дело)
+        n=0
+        while IFS= read -r kv; do
+            [ -n "$kv" ] || continue
+            key=${kv%%=*}; val=${kv#*=}
+            cur=$(incus-loc network get "$name" "$key" 2>/dev/null || true)
+            [ "$cur" = "$val" ] && continue
+            if [ "$DRY_RUN" = 1 ]; then
+                log "сделал бы: incus-loc network set $name $key '$val' (сейчас '$cur')"; n=$((n + 1)); continue
+            fi
+            if incus-loc network set "$name" "$key" "$val" >/dev/null 2>&1; then
+                log "сеть $name: применено $key = $val (было '$cur')"; n=$((n + 1))
+            else
+                log "ОШИБКА: сеть $name: не смог применить $key"; FAIL=1
+            fi
+        done < <(proj_scalars "$f")
+        cur=$(incus-loc network get "$name" user.managed-by 2>/dev/null || true)
+        if [ "$cur" != "$MANAGED_BY" ] && [ "$DRY_RUN" = 0 ]; then
+            incus-loc network set "$name" user.managed-by "$MANAGED_BY" >/dev/null 2>&1 \
+                && log "сеть $name: поставлен маркер $MANAGED_BY"
+        fi
+        if [ "$DRY_RUN" = 0 ]; then
+            if [ "$n" -gt 0 ]; then
+                record "$name" "network" "ok" "ключи сети приведены (изменений: $n)"
+            else
+                log "сеть $name: изменений нет"
+            fi
+        fi
+    done
+    report_orphan_networks
+}
+
+report_orphan_networks() { # НАША сеть без декларации в git — только отчёт: удалять нельзя
+    local n marker
+    while IFS= read -r n; do
+        [ -n "$n" ] || continue
+        marker=$(incus-loc network get "$n" user.managed-by 2>/dev/null || true)
+        [ "$marker" = "$MANAGED_BY" ] || continue
+        [ -f "$SUB/networks/$n.yaml" ] && continue
+        log "сеть $n: маркер контура есть, декларации в git нет — НЕ удаляю (снять руками: incus-loc network delete $n)"
+        record "$n" "network" "пропуск" "декларации нет: сеть не удаляется автоматически"
+    done < <(incus-loc network list -c n --format csv 2>/dev/null)
+}
+
+net_preconditions() { # сети, на которые ссылаются декларации инстансов, обязаны существовать
+    local f nets n bn
+    for f in "$SUB"/services/*.yaml; do
+        [ -e "$f" ] || continue
+        bn=$(basename "$f" .yaml)
+        nets=$(proj_rest "$f" | awk '
+            /^[[:space:]]*network:[[:space:]]*/ {
+                v=$0; sub(/^[[:space:]]*network:[[:space:]]*/, "", v)
+                sub(/[[:space:]]+#.*$/, "", v); gsub(/"/, "", v)
+                if (v != "") print v
+            }')
+        for n in $nets; do
+            incus-loc network show "$n" >/dev/null 2>&1 && continue
+            if [ "$DRY_RUN" = 1 ] && [ -f "$SUB/networks/$n.yaml" ]; then
+                log "предпосылка: сети $n пока нет, но она объявлена в networks/ и будет создана при применении"
+                continue
+            fi
+            log "ОШИБКА: $bn.yaml ссылается на сеть $n, которой нет (объяви её: networks/$n.yaml)"
+            record "$bn" "precheck" "провал" "нет сети $n — объяви networks/$n.yaml"
+            NET_MISSING=1
+            FAIL=1
+        done
+    done
+    return 0
+}
+
+# --- применение --------------------------------------------------------------
+reconcile_networks        # сети — ДО инстансов (устройство на несуществующей сети роняет create)
+net_preconditions
+if [ "$NET_MISSING" = 1 ]; then
+    log "инстансы не трогаю: у деклараций нет объявленной сети (см. строки precheck выше)"
+    log "=== reconcile завершён"
+    exit 1
+fi
+
 remove_orphans "${1:-}" "${2:-}"        # декларации, удалённые из git → снять инстансы
 files=("$SUB"/services/*.yaml)
 if [ ${#files[@]} -eq 0 ]; then

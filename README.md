@@ -50,6 +50,7 @@
 требуют:
 
 ```sh
+bash servers/skld00/tests/networks-test.sh    # сети: создание, приведение ключей, предпосылки инстансов
 bash servers/skld00/tests/update-test.sh       # ночной контур: обновление, откат, уборка
 bash servers/skld00/tests/reconcile-test.sh    # применение деклараций: create/recreate, хеши, uid
 bash servers/skld00/tests/remove-test.sh       # снятие по декларации, удалённой из git
@@ -191,9 +192,12 @@ homelab-deploy/
         │   └── lxc-update.timer   # окно 02:00–03:00 (случайный сдвиг внутри часа)
         ├── tests/                 # харнессы на заглушках: узла не требуют (см. tests/README.md)
         │   ├── harness-lib.sh
+        │   ├── networks-test.sh
         │   ├── update-test.sh
         │   ├── reconcile-test.sh
         │   └── remove-test.sh
+        ├── networks/
+        │   └── observ0.yaml       # приватная сеть узла 172.26.50.0/24 под служебный трафик
         └── services/
             ├── README.md          # формат деклараций инстансов
             ├── vl1.yaml           # VictoriaLogs  (:9428)
