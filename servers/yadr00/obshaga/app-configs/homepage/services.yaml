@@ -85,12 +85,6 @@
         description: Заметки — порт 10004
         server: obshaga
         container: memos
-    - LinkStack:
-        icon: linkstack.png
-        href: https://linkstack.obshaga.yadr00.internal
-        description: Мультиссылки — порт 10003
-        server: obshaga
-        container: systemd-03-linkstack
     - Element:
         icon: element.png
         href: https://element.obshaga.yadr00.internal

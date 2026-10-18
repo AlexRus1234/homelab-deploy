@@ -120,24 +120,18 @@ vpn.alexrus1234.ru {
     }
 }
 
-# LinkStack — публичная страница ссылок, админка снаружи закрыта.
-# Проксируем напрямую в ВМ (как sftpgo/xir), Host НЕ подменяем:
-# LinkStack генерирует абсолютные ссылки по Host — с подменой на
-# linkstack.obshaga.yadr00.internal страница снаружи остаётся без css/картинок.
+# Публичная страница ссылок — статика, отдаётся самим VPS.
+# Файлы страницы лежат в репозитории homelab-deploy (vps/site/link/).
 link.alexrus1234.ru {
-    @root path /
-    rewrite @root /@AlexRus1234
-
-    @deny path /admin* /dashboard* /install* /signup*
-    respond @deny 403
-
-    reverse_proxy 172.20.5.17:10003
+    root * /srv/homelab-deploy/vps/site/link
+    file_server
+    encode zstd gzip
 }
 ```
 
 > В Caddyfile `{` и `}` всегда на отдельной строке; однострочные блоки вида `transport http { tls_insecure_skip_verify }` — ошибка парсинга.
 
-LinkStack: корень отдаёт страницу `/@AlexRus1234`, пути `/admin*`, `/dashboard*`, `/install*`, `/signup*` — 403 (админка только изнутри: `linkstack.obshaga.yadr00.internal`).
+Страница ссылок: Caddy раздаёт каталог `/srv/homelab-deploy/vps/site/link` (список ссылок правится в `links.json`, установка — см. README этого каталога). Путей `/admin*` и `/install*` больше не существует — файлового сервера админка не имеет.
 DNS: A-запись `link.alexrus1234.ru` → внешний IP VPS (как у остальных поддоменов `alexrus1234.ru`).
 ```bash
 sudo systemctl reload caddy

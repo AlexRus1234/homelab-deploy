@@ -24,7 +24,7 @@ PublishPort=10001:8080
 Volume=/opt/appdata/config/element-web/config.json:/app/config.json:ro
 ```
 
-- `ELEMENT_WEB_PORT=8080` — envsubst-шаблон nginx образа; 8080 вместо дефолтного 80, чтобы не городить `Sysctl=net.ipv4.ip_unprivileged_port_start=80` (как у linkstack).
+- `ELEMENT_WEB_PORT=8080` — envsubst-шаблон nginx образа; 8080 вместо дефолтного 80, чтобы не городить `Sysctl=net.ipv4.ip_unprivileged_port_start=80`.
 - Входная точка образа (`18-load-element-modules.sh`) копирует `/app/config*.json` в `/tmp/element-web-config`, откуда nginx раздаёт их по пути `/config`. Смонтированный `config.json` просто перекрывает baked-сэмпл.
 - Homeserver: `default_server_config` ОБЯЗАТЕЛЕН для этой сборки — без него app.tsx (`verifyServerConfiguration`) бросает `invalid_configuration_no_server` до экрана входа. Дефолт — `https://matrix.yadr01.internal` (LXC synapse через Caddy yadr01, маршрут `/etc/caddy/caddy_conf/matrix.caddy` c well-known-делегацией; matrix.org не годится — заблокирован РКН, свежая сборка висит на нём чёрным экраном). Чужие серверы — через «изменить сервер» на экране входа (`disable_custom_urls: false`).
 

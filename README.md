@@ -151,7 +151,6 @@ homelab-deploy/
     │       ├── quadlets/
     │       │   ├── 00-homepage.container
     │       │   ├── 01-element-web.container
-    │       │   ├── 03-linkstack.container
     │       │   ├── 04-memos.container
     │       │   ├── 05-mortis.container
     │       │   └── apps.network

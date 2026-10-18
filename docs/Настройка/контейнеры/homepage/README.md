@@ -103,7 +103,7 @@ curl -sk -H "Authorization: $TOK" https://172.20.5.1:8006/api2/json/cluster/reso
 
 **Khrazhevnik** (карточки «Khrazhevnik» и «Khrazhevnik (раздачи)»): статистика кеша — hit ratio, пакетов в кеше, отдано клиентам, ошибки upstream + список последних 10 клиентских раздач (путь + HIT/MISS/STALE, клик — на файл). Источники — админ-API `http://172.20.6.9:10003/api/v1/cache/stats` и `.../cache/transactions?limit=10` (ответ — голый массив в корне). Токен: веб-админка Хражевника → Users → API-токен со scope **admin** (секрет `khz_…` показывается один раз) → `HOMEPAGE_VAR_KHRZ_TOKEN`.
 
-**Контейнеры obshaga** (карточки Memos/Mortis/LinkStack): живой статус и CPU/RAM контейнеров.
+**Контейнеры obshaga** (карточки Memos/Mortis): живой статус и CPU/RAM контейнеров.
 Ничего создавать не нужно: сокет rootless Podman проброшен в quadlet (`Volume=%t/podman/podman.sock:/var/run/docker.sock`), инстанс описан в `docker.yaml`. Требование — включённый `podman.socket` (user), гайд 06 этап 2.1.
 
 > После добавления секретов в env — `systemctl --user restart 00-homepage` (env читается только при старте; YAML-конфиги подхватываются на лету).

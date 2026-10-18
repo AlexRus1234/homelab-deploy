@@ -81,6 +81,7 @@ link.alexrus1234.ru {
 
 Проверка после переноса: страница открывается по `https://link.alexrus1234.ru`, внизу видно счётчик ссылок, `/admin` больше не существует ни как 403, ни как редирект.
 
-## Что осталось убрать (не сделано)
+## Состояние
 
-LinkStack выводится из обихода целиком: quadlet `servers/yadr00/obshaga/quadlets/03-linkstack.container`, карточка в `app-configs/homepage/services.yaml`, домен `linkstack.obshaga.yadr00.internal` (таблицы `docs/Инфраструктура/00`, `05`, `01`) и указания в `docs/Настройка/12_VPN_Headscale_VPS.md`. Пока оставлено на месте.
+- **LinkStack выведен из обихода.** Из репозитория удалён quadlet `servers/yadr00/obshaga/quadlets/03-linkstack.container` — после пуша webhook на `obshaga` делает `rsync --delete` в каталог юнитов, `daemon-reload` снимает юнит и контейнер останавливается; карточка сервиса убрана из `app-configs/homepage/services.yaml`; упоминания вычищены из `docs/` (карта железа, доменные имена, архитектура, гайд 12, паспорт YADR00, заметки по podman) и из дерева в корневом `README.md`.
+- **Осталось только то, что руками:** на VPS заменить блок `link.alexrus1234.ru` в `/etc/caddy/Caddyfile` (шаги — в разделе выше). Если в LAN-Caddy (`172.20.5.3`) ещё живёт маршрут `linkstack.obshaga.yadr00.internal`, добавленный через Admin API, он снимается отдельно — в шаблонах репозитория его никогда не было.

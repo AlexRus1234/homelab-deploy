@@ -10,7 +10,7 @@ AutoUpdate=registry
 ContainerName=element
 
 # nginx внутри слушает ELEMENT_WEB_PORT (envsubst-шаблон образа).
-# 8080 вместо дефолтного 80 — не нужен Sysctl ip_unprivileged_port_start (как у linkstack)
+# 8080 вместо дефолтного 80 — не нужен Sysctl ip_unprivileged_port_start
 Environment=ELEMENT_WEB_PORT=8080
 PublishPort=10001:8080
 
