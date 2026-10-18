@@ -1,7 +1,6 @@
 {
   "site": {
-    "title": "AlexRus1234",
-    "footer": "Статика, Caddy · всё правится в links.json"
+    "title": "AlexRus1234"
   },
   "groups": [
     {
@@ -42,7 +41,8 @@
         {
           "title": "Matrix: прямое приглашение",
           "url": "https://matrix.to/#/#alexrus1234:matrix.alexrus1234.ru",
-          "description": "Пространство проекта — откроется в любом Matrix-клиенте"
+          "description": "Ссылка для копирования — вставь её в свой Matrix-клиент",
+          "copy": true
         },
         {
           "title": "Matrix: через наш Element",

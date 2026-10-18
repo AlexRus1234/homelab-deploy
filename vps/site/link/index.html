@@ -6,118 +6,102 @@
 <meta name="color-scheme" content="dark light">
 <title>AlexRus1234</title>
 <meta name="description" content="Ссылки проекта AlexRus1234">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230ea5e9'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230369a1'/></svg>">
 <style>
   :root{
-    --bg:#0b0f17;
-    --card:rgba(255,255,255,.045); --card-hi:rgba(255,255,255,.075);
-    --border:rgba(255,255,255,.10); --border-hi:rgba(255,255,255,.22);
-    --fg:#e9eef7; --muted:#94a3b8; --accent:#6ee7ff; --accent2:#a78bfa;
-    --radius:16px; --maxw:1180px;
+    --bg:#0f1115; --card:#15181e; --card-hover:#1a1e26;
+    --border:#242a33; --border-hi:#3a4351;
+    --fg:#e6e9ef; --muted:#8b95a5;
+    --radius:10px; --maxw:1180px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   }
   @media (prefers-color-scheme: light){
     :root{
-      --bg:#f6f8fc;
-      --card:rgba(255,255,255,.75); --card-hi:#ffffff;
-      --border:rgba(15,23,42,.10); --border-hi:rgba(15,23,42,.22);
-      --fg:#0f172a; --muted:#5b6b82; --accent:#0ea5e9; --accent2:#7c3aed;
+      --bg:#ffffff; --card:#fbfcfd; --card-hover:#f4f6f9;
+      --border:#e4e8ee; --border-hi:#c7ced8;
+      --fg:#111418; --muted:#5b6676;
     }
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{
     background:var(--bg); color:var(--fg); min-height:100vh;
-    font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
   }
-  /* фоновые пятна */
-  .glow{position:fixed; inset:-20vmax; z-index:0; pointer-events:none; filter:blur(60px); opacity:.5}
-  .glow i{position:absolute; display:block; width:46vmax; height:46vmax; border-radius:50%;
-    background:radial-gradient(circle at 50% 50%, var(--accent), transparent 62%);
-    animation:drift 26s ease-in-out infinite alternate}
-  .glow i:nth-child(1){left:0; top:0}
-  .glow i:nth-child(2){background:radial-gradient(circle at 50% 50%, var(--accent2), transparent 62%);
-    right:0; bottom:0; animation-duration:32s; animation-direction:alternate-reverse}
-  @keyframes drift{
-    from{transform:translate3d(0,0,0) scale(1)}
-    to{transform:translate3d(9vmax,-7vmax,0) scale(1.18)}
-  }
-  @media (prefers-reduced-motion: reduce){ .glow i{animation:none} }
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:36px 20px 48px}
 
-  .wrap{position:relative; z-index:1; max-width:var(--maxw); margin:0 auto; padding:clamp(28px,6vw,64px) 20px 56px}
+  header{margin-bottom:18px}
+  h1{margin:0;font-size:24px;font-weight:600;letter-spacing:-.01em}
 
-  header{display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap; margin-bottom:22px}
-  h1{margin:0;font-size:clamp(24px,4vw,34px);letter-spacing:-.02em;line-height:1.1}
-  .meta{margin-left:auto;color:var(--muted);font-size:13px;text-align:right}
-
-  .search{margin:22px 0 32px;max-width:440px}
+  .search{margin:16px 0 26px;max-width:420px}
   .search input{
-    width:100%;padding:13px 16px;border-radius:14px;color:var(--fg);
-    background:var(--card);border:1px solid var(--border);outline:none;font-size:15px;
-    transition:border-color .18s, box-shadow .18s, background .18s
+    width:100%;padding:10px 14px;border-radius:8px;color:var(--fg);font-size:14px;
+    background:var(--card);border:1px solid var(--border);outline:none;
+    transition:border-color .15s
   }
   .search input::placeholder{color:var(--muted)}
-  .search input:focus{border-color:var(--border-hi);background:var(--card-hi);box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent)}
+  .search input:focus{border-color:var(--border-hi)}
 
-  section{margin-bottom:34px}
-  h2{margin:0 0 4px;font-size:14px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent)}
-  .note{margin:0 0 14px;color:var(--muted);font-size:13px}
+  section{margin-bottom:24px}
+  h2{margin:0 0 3px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.12em}
+  .note{margin:0 0 10px;color:var(--muted);font-size:12.5px}
 
-  /* одна группа — одна строка: число колонок задаёт рендер через --cols */
-  .grid{display:grid;gap:14px;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr))}
+  /* одна группа — одна строка: колонок столько, сколько ссылок в группе */
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr))}
   @media (max-width:1040px){
-    .grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
   }
 
   .card{
-    display:flex;flex-direction:column;gap:2px;padding:15px 16px;
-    text-decoration:none;color:inherit;border-radius:var(--radius);
-    background:var(--card);border:1px solid var(--border);backdrop-filter:blur(8px);
-    transform:translateY(10px);opacity:0;
-    animation:in .5s cubic-bezier(.2,.7,.2,1) forwards;
-    transition:transform .2s cubic-bezier(.2,.7,.2,1), border-color .2s, background .2s, box-shadow .25s
+    display:flex;flex-direction:column;gap:3px;padding:12px 14px;
+    text-decoration:none;color:inherit;background:var(--card);
+    border:1px solid var(--border);border-radius:var(--radius);
+    transition:border-color .15s, background .15s
   }
-  @keyframes in{to{transform:none;opacity:1}}
-  @media (prefers-reduced-motion: reduce){ .card{animation:none;transform:none;opacity:1} }
-  .card:hover,.card:focus-visible{
-    transform:translateY(-3px);border-color:var(--border-hi);background:var(--card-hi);
-    box-shadow:0 14px 34px rgba(0,0,0,.28); outline:none
-  }
-  .t{font-weight:600;letter-spacing:-.01em}
-  .u{margin-top:1px;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .d{margin-top:7px;color:var(--muted);font-size:13.5px}
-  .tags{margin-top:auto;padding-top:10px;display:flex;gap:6px;flex-wrap:wrap}
-  .tag{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
-  .card:hover .tag{border-color:var(--border-hi)}
+  .card:hover{border-color:var(--border-hi);background:var(--card-hover)}
+  .card:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+  .t{font-weight:600;font-size:14.5px}
+  .d{color:var(--muted);font-size:13px}
 
-  .empty{color:var(--muted);padding:14px 0}
-  footer{margin-top:44px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+  /* та же ссылка, но строкой для копирования: клик копирует, а не открывает */
+  .url{
+    margin-top:9px;padding-top:9px;border-top:1px solid var(--border);
+    font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    word-break:break-all;cursor:copy
+  }
+  .url:hover{color:var(--fg)}
+  .card[data-copy="1"]{cursor:copy}
+
+  .count{color:var(--muted);font-size:12.5px;margin-top:16px}
+  .empty{color:var(--muted);padding:10px 0}
+  .toast{
+    position:fixed;left:50%;bottom:22px;transform:translate(-50%,10px);
+    background:var(--fg);color:var(--bg);border-radius:8px;
+    padding:8px 14px;font-size:13px;opacity:0;pointer-events:none;
+    transition:opacity .15s, transform .15s
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
 </head>
 <body>
-<div class="glow" aria-hidden="true"><i></i><i></i></div>
-
 <main class="wrap">
-  <header>
-    <h1 id="title">Загрузка…</h1>
-    <div class="meta" id="meta"></div>
-  </header>
+  <header><h1 id="title">Загрузка…</h1></header>
 
   <div class="search">
-    <input id="q" type="search" placeholder="Фильтр: имя, описание, тег…" autocomplete="off" aria-label="Фильтр ссылок">
+    <input id="q" type="search" placeholder="Фильтр: имя, описание, группа" autocomplete="off" aria-label="Фильтр ссылок">
   </div>
 
   <div id="out"><p class="empty">Читаю links.json…</p></div>
-
-  <footer>
-    <span id="footer"></span>
-    <span id="count"></span>
-  </footer>
+  <div class="count" id="count"></div>
 </main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (async function () {
   const out = document.getElementById('out');
+  const toast = document.getElementById('toast');
   let data;
 
   try {
@@ -138,14 +122,11 @@
 
   document.title = site.title || document.title;
   document.getElementById('title').textContent = site.title || '';
-  document.getElementById('meta').innerHTML = site.meta ? site.meta : '';
-  document.getElementById('footer').textContent = site.footer || '';
   const totalText = all.length + ' ' + plural(all.length, 'ссылка', 'ссылки', 'ссылок');
   document.getElementById('count').textContent = totalText;
   out.innerHTML = '';
 
   // рендер: одна группа — одна строка карточек
-  let idx = 0;
   groups.forEach(g => {
     const sec = document.createElement('section');
     const h = document.createElement('h2'); h.textContent = g.name; sec.appendChild(h);
@@ -156,31 +137,33 @@
     grid.style.setProperty('--cols', Math.max(1, g.links.length));
 
     g.links.forEach(l => {
-      const a = document.createElement('a');
-      a.className = 'card';
-      a.href = l.url;
-      a.rel = 'noopener';
-      a.style.animationDelay = Math.min(idx++ * 45, 700) + 'ms';
-      a.dataset.hay = [g.name, l.title, l.url, l.description, (l.tags || []).join(' ')].join(' ').toLowerCase();
+      const copyOnly = l.copy === true;          // карточка-ссылка для копирования, не для перехода
+      const card = document.createElement(copyOnly ? 'div' : 'a');
+      card.className = 'card';
+      if (copyOnly) card.dataset.copy = '1';
+      else { card.href = l.url; card.rel = 'noopener'; }
+      card.dataset.hay = [g.name, l.title, l.url, l.description, (l.tags || []).join(' ')].join(' ').toLowerCase();
 
       const t = document.createElement('div'); t.className = 't'; t.textContent = l.title || l.url;
-      const u = document.createElement('div'); u.className = 'u'; u.textContent = pretty(l.url);
-      a.append(t, u);
+      card.appendChild(t);
+      if (l.description) { const d = document.createElement('div'); d.className = 'd'; d.textContent = l.description; card.appendChild(d); }
 
-      if (l.description) { const d = document.createElement('div'); d.className = 'd'; d.textContent = l.description; a.appendChild(d); }
-      if (l.tags && l.tags.length) {
-        const tg = document.createElement('div'); tg.className = 'tags';
-        l.tags.forEach(x => { const s = document.createElement('span'); s.className = 'tag'; s.textContent = x; tg.appendChild(s); });
-        a.appendChild(tg);
-      }
-      grid.appendChild(a);
+      const u = document.createElement('div');
+      u.className = 'url';
+      u.textContent = l.url;
+      u.title = 'Нажми, чтобы скопировать';
+      u.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); copyText(l.url, u); });
+      card.appendChild(u);
+
+      if (copyOnly) card.addEventListener('click', () => copyText(l.url, u));
+
+      grid.appendChild(card);
     });
 
     sec.appendChild(grid);
     out.appendChild(sec);
   });
 
-  // фильтр
   const q = document.getElementById('q');
   q.addEventListener('input', () => {
     const v = q.value.trim().toLowerCase();
@@ -198,9 +181,23 @@
       : totalText;
   });
 
-  function pretty(u) {
-    try { const x = new URL(u); return x.host + (x.pathname !== '/' ? x.pathname : ''); }
-    catch { return u; }
+  async function copyText(text, node) {
+    try { await navigator.clipboard.writeText(text); say('Скопировано'); return; } catch (e) {}
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy'); ta.remove();
+      if (ok) { say('Скопировано'); return; }
+    } catch (e) {}
+    const r = document.createRange(); r.selectNodeContents(node);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    say('Выделено — нажми Ctrl+C');
+  }
+  function say(msg) {
+    toast.textContent = msg; toast.classList.add('on');
+    clearTimeout(say._t); say._t = setTimeout(() => toast.classList.remove('on'), 1600);
   }
   function plural(n, a, b, c) {
     const m = n % 100, k = n % 10;
