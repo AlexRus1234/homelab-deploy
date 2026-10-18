@@ -70,16 +70,16 @@ mk_service() { # имя, датасет
 }
 
 mk_net observ0
-mk_service vl1 tank/vl-data
-mk_service vm1 tank/vm-data
+mk_service victorialogs1 tank/vl-data
+mk_service victoriametrics1 tank/vm-data
 mk_service unmarked tank/unmarked-data      # объявлен, но инстанс без нашего маркера
 
 # состояние узла: два наших инстанса, «одноимённый, но чужой», стоянки, наша сеть
-for n in vl1 vm1; do touch "$S/exists-$n"; echo homelab-deploy/skld00 > "$S/marker-$n"; done
+for n in victorialogs1 victoriametrics1; do touch "$S/exists-$n"; echo homelab-deploy/skld00 > "$S/marker-$n"; done
 touch "$S/exists-zz-foreign"                                    # без маркера — не наш
 touch "$S/exists-unmarked"                                      # объявлен, но маркера нет: трогать нельзя
 st=$(stamp_ago 100000)                                          # метка стоянки — от «сейчас», не датой
-touch "$S/exists-vl1-pre-$st"; echo homelab-deploy/skld00 > "$S/marker-vl1-pre-$st"
+touch "$S/exists-victorialogs1-pre-$st"; echo homelab-deploy/skld00 > "$S/marker-victorialogs1-pre-$st"
 touch "$S/exists-zz-pre-$st"                                    # стоянка без маркера — не наша
 echo "ipv4.address=172.26.50.1/24" > "$S/net/observ0"
 echo "user.managed-by=homelab-deploy/skld00" >> "$S/net/observ0"
@@ -155,8 +155,8 @@ say "0. --down в dry-run: только план, ноль мутаций"
 stage
 DRY_RUN=1 bash "$R" --down > "$W/out" 2>&1; echo "    --- код: $?"
 grep -E "сделал бы|режим" "$W/out" | sed 's/^/    /' | head -6
-has   "0: в плане — снятие инстанса"       "сделал бы: incus-loc stop vl1; incus-loc delete vl1" "$W/out"
-has   "0: в плане — снятие стоянки"        "incus-loc delete vl1-pre-$st --force"    "$W/out"
+has   "0: в плане — снятие инстанса"       "сделал бы: incus-loc stop victorialogs1; incus-loc delete victorialogs1" "$W/out"
+has   "0: в плане — снятие стоянки"        "incus-loc delete victorialogs1-pre-$st --force"    "$W/out"
 has   "0: в плане — снятие сети"           "incus-loc network delete observ0"                    "$W/out"
 check "0: мутаций ноль" "0" "$(mut)"
 
@@ -173,20 +173,20 @@ stage
 bash "$R" --down > "$W/out" 2>&1; echo "    --- код: $?"
 grep -E "снятие|снапшот|данные" "$W/out" | sed 's/^/    /' | head -12
 echo "    --- осталось инстансов: $(ls "$S" | grep -c '^exists-' | tr -d ' ') (ожидаем 3: наши сняты, чужие и без маркера остались)"
-has   "A: vl1 остановлен и снят"        "INCUS: stop vl1"        "$W/log"
-has   "A: vl1 удалён"                   "INCUS: delete vl1"      "$W/log"
-has   "A: vm1 удалён"                   "INCUS: delete vm1"      "$W/log"
-has   "A: страховочный снапшот данных vl1" "ZFS: snapshot tank/vl-data@removed-" "$W/log"
-has   "A: страховочный снапшот данных vm1" "ZFS: snapshot tank/vm-data@removed-" "$W/log"
+has   "A: victorialogs1 остановлен и снят"        "INCUS: stop victorialogs1"        "$W/log"
+has   "A: victorialogs1 удалён"                   "INCUS: delete victorialogs1"      "$W/log"
+has   "A: victoriametrics1 удалён"                   "INCUS: delete victoriametrics1"      "$W/log"
+has   "A: страховочный снапшот данных victorialogs1" "ZFS: snapshot tank/vl-data@removed-" "$W/log"
+has   "A: страховочный снапшот данных victoriametrics1" "ZFS: snapshot tank/vm-data@removed-" "$W/log"
 nothas "A: датасеты не удаляются"        "ZFS: destroy"           "$W/log"
 check "A: сеть снята ПОСЛЕ инстансов" "да" \
-    "$([ "$(lineof 'INCUS: delete vl1')" -lt "$(lineof 'INCUS: network delete observ0')" ] && echo да || echo нет)"
+    "$([ "$(lineof 'INCUS: delete victorialogs1')" -lt "$(lineof 'INCUS: network delete observ0')" ] && echo да || echo нет)"
 nothas "A: чужой инстанс не тронут"      "INCUS: delete zz-foreign" "$W/log"
 nothas "A: инстанс без маркера не тронут" "INCUS: delete unmarked"  "$W/log"
-has   "A: наша стоянка снята"            "INCUS: delete vl1-pre-$st --force" "$W/log"
+has   "A: наша стоянка снята"            "INCUS: delete victorialogs1-pre-$st --force" "$W/log"
 nothas "A: чужая стоянка не тронута"     "INCUS: delete zz-pre-$st" "$W/log"
 nothas "A: чужая сеть не тронута"        "INCUS: network delete foreign" "$W/log"
-check "A: в отчёте down ok у vl1"        "ok" "$(status_field vl1 down 3 "$S/state/status")"
+check "A: в отчёте down ok у victorialogs1"        "ok" "$(status_field victorialogs1 down 3 "$S/state/status")"
 check "A: в отчёте пропуск у инстанса без маркера" "пропуск" "$(status_field unmarked down 3 "$S/state/status")"
 
 say "B. --up после снятия: сеть и оба инстанса созданы заново"
@@ -195,10 +195,10 @@ bash "$R" --up > "$W/out" 2>&1; echo "    --- код: $?"
 grep -E "сеть|create|создан|uid" "$W/out" | sed 's/^/    /' | head -10
 echo "    --- инстансов теперь: $(ls "$S" | grep -c '^exists-' | tr -d ' ')"
 has   "B: сеть создана заново"           "INCUS: network create observ0" "$W/log"
-has   "B: vl1 создан"                    "INCUS: create leap16-base vl1" "$W/log"
-has   "B: vm1 создан"                    "INCUS: create leap16-base vm1" "$W/log"
-check "B: в отчёте create ok у vl1"      "ok" "$(status_field vl1 create 3 "$S/state/status")"
-check "B: в отчёте create ok у vm1"      "ok" "$(status_field vm1 create 3 "$S/state/status")"
+has   "B: victorialogs1 создан"                    "INCUS: create leap16-base victorialogs1" "$W/log"
+has   "B: victoriametrics1 создан"                    "INCUS: create leap16-base victoriametrics1" "$W/log"
+check "B: в отчёте create ok у victorialogs1"      "ok" "$(status_field victorialogs1 create 3 "$S/state/status")"
+check "B: в отчёте create ok у victoriametrics1"      "ok" "$(status_field victoriametrics1 create 3 "$S/state/status")"
 check "B: в отчёте network ok"           "ok" "$(status_field observ0 network 3 "$S/state/status")"
 
 say "C. сеть занята кем-то ещё → удаление не проходит, код ненулевой"

@@ -50,6 +50,8 @@
 требуют:
 
 ```sh
+bash servers/skld00/tests/node-test.sh         # конфиги узла: экспортёры, Vector, приёмка адресов
+bash servers/skld00/tests/deploy-test.sh       # content_file в составе, переименование декларации
 bash servers/skld00/tests/networks-test.sh    # сети: создание, приведение ключей, предпосылки инстансов
 bash servers/skld00/tests/teardown-test.sh    # ручные режимы --down/--up: снять и поднять всё объявленное
 bash servers/skld00/tests/update-test.sh       # ночной контур: обновление, откат, уборка
@@ -202,6 +204,6 @@ homelab-deploy/
         │   └── observ0.yaml       # приватная сеть узла 172.26.50.0/24 под служебный трафик
         └── services/
             ├── README.md          # формат деклараций инстансов
-            ├── vl1.yaml           # VictoriaLogs  (:9428)
-            └── vm1.yaml           # VictoriaMetrics (:8428)
+            ├── victorialogs1.yaml           # VictoriaLogs  (:9428)
+            └── victoriametrics1.yaml           # VictoriaMetrics (:8428)
 ```

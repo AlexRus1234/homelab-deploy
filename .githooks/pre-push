@@ -1,5 +1,5 @@
 #!/bin/bash
-# Проверка контура ПЕРЕД пушем: пять харнессов на заглушках. Красный — пуш не уходит.
+# Проверка ПЕРЕД пушем: харнессы контура и деплой-пути (узла и деклараций). Красный — пуш не уходит.
 #
 # Включается ОДИН раз на клон (настройка репозиторная, другие репозитории машины не затрагивает):
 #     git config core.hooksPath .githooks
@@ -22,7 +22,8 @@ if bad=$(grep -nE '(^|[^0-9])20[0-9]{6}-[0-9]{6}' servers/skld00/tests/*.sh); th
 fi
 
 fails=0
-for t in networks-test teardown-test update-test reconcile-test remove-test; do
+TESTS=(node-test deploy-test networks-test teardown-test update-test reconcile-test remove-test)
+for t in "${TESTS[@]}"; do
     if out=$(bash "servers/skld00/tests/$t.sh" 2>&1); then
         printf 'pre-push: %s — зелено\n' "$t"
     else
@@ -33,7 +34,7 @@ for t in networks-test teardown-test update-test reconcile-test remove-test; do
 done
 
 if [ "$fails" -gt 0 ]; then
-    printf '\nПуш остановлен: харнессы контура красные (%s из 5).\n' "$fails"
+    printf '\nПуш остановлен: харнессы красные (%s из %s).\n' "$fails" "${#TESTS[@]}"
     printf 'Разбираться: bash servers/skld00/tests/<имя>.sh — вывод по секциям.\n'
     printf 'Обойти осознанно: git push --no-verify\n'
     exit 1

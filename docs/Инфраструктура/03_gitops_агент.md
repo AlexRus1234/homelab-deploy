@@ -123,7 +123,7 @@ create по новой декларации → start → cloud-init → uid →
 состоянии):
 
 ```sh
-sudo /opt/appdata/git-repo/servers/skld00/reconcile.sh --recreate vl1
+sudo /opt/appdata/git-repo/servers/skld00/reconcile.sh --recreate victorialogs1
 ```
 
 Ночное обновление пакетов и уборка снапшотов/стоянок — отдельная часть контура (`update.sh` +

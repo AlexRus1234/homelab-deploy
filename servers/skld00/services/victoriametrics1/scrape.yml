@@ -1,0 +1,24 @@
+# Скрейп-конфиг victoriametrics1: источники живут на узле и слушают адрес бриджа observ0.
+#
+# Источники (172.26.50.1) — только для этого сегмента: в LAN их не видно. VM перечисляет
+# их статикой, потому что discovery тут не нужен: узлов и источников — по одному.
+#
+# Метрики самого контура (lxc_*) приезжают в джобе node: их отдаёт node_exporter узла из
+# /var/lib/node_exporter/textfile_collector/lxc.prom, который пишет update.sh.
+global:
+  scrape_interval: 30s
+  scrape_timeout: 5s
+
+scrape_configs:
+  - job_name: node
+    static_configs:
+      - targets: ["172.26.50.1:9100"]
+        labels: {instance: "SKLD00", host: "SKLD00"}
+  - job_name: smartctl
+    static_configs:
+      - targets: ["172.26.50.1:9633"]
+        labels: {instance: "SKLD00", host: "SKLD00"}
+  - job_name: zfs
+    static_configs:
+      - targets: ["172.26.50.1:9134"]
+        labels: {instance: "SKLD00", host: "SKLD00"}

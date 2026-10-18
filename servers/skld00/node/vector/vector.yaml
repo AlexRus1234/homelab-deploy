@@ -1,0 +1,43 @@
+# Vector на узле skld00: журнал узла → VictoriaLogs (victorialogs1, приём ES-совместимый).
+#
+# Проверено живьём на пробном стенде 18.10 (Arch + vector-loc 0.59.0-1): строки долетают,
+# в VL видно _msg/_time и стрим {host, unit}.
+#
+# data_dir указывает на каталог состояния с суффиксом -loc: иначе Vector писал бы состояние
+# в /var/lib/vector (каталог upstream-пакета).
+data_dir: "/var/lib/vector-loc"
+
+sources:
+  journald:
+    type: journald
+    # false — чтобы после перезапуска не перечитывать журнал с начала: позицию держит
+    # чекпойнт в data_dir.
+    current_boot_only: false
+    # Если шум от собственных логов Vector мешает — ограничить набор юнитов:
+    #   exclude_units: ["vector-loc.service"]
+    #   include_units: ["sshd.service", "lxc-update.service"]
+
+transforms:
+  # В журнале нет поля unit: systemd отдаёт _SYSTEMD_UNIT, а Vector — SYSLOG_IDENTIFIER.
+  # Без этого стрим в VL получится только по хосту (проверено: с трансформацией стрим
+  # становится {host, unit}).
+  normalize:
+    type: remap
+    inputs: ["journald"]
+    source: |
+      .unit = .SYSLOG_IDENTIFIER
+
+sinks:
+  victorialogs:
+    type: elasticsearch
+    inputs: ["normalize"]
+    endpoints: ["http://172.26.50.101:9428/insert/elasticsearch/"]
+    api_version: "v8"
+    mode: bulk
+    # VL не отвечает на health-check Elasticsearch — держать его включённым нельзя.
+    healthcheck:
+      enabled: false
+    query:
+      _msg_field: message
+      _time_field: timestamp
+      _stream_fields: "host,unit"

@@ -237,7 +237,11 @@ remove_orphans() { # старый-хеш, новый-хеш
         log "снятие: git-хеши не переданы (ручной прогон) — декларации не пересматриваю"
         return 0
     fi
-    if ! deleted=$(git -C "$REPO_DIR" diff --name-only --diff-filter=D "$old" "$new" -- servers/skld00/services/ 2>/dev/null); then
+    # Переименование декларации git считает rename'ом, а не удалением: с включённым
+    # определением переименований фильтр D не срабатывает, старый инстанс остаётся жить —
+    # и держит тот же MAC, что новый. Поэтому здесь rename'ы намеренно выключены: переезд
+    # читается как «удалить старый + создать новый».
+    if ! deleted=$(git -C "$REPO_DIR" diff --no-renames --name-only --diff-filter=D "$old" "$new" -- servers/skld00/services/ 2>/dev/null); then
         log "снятие: git diff не сработал (нет репозитория?) — пропускаю"
         return 0
     fi
@@ -540,6 +544,14 @@ for f in "${files[@]}"; do
     if [ -n "$RECREATE_ONLY" ] && [ "$name" != "$RECREATE_ONLY" ]; then
         continue          # режим --recreate --name: остальные декларации не трогаем
     fi
+    # content_file → content: | до проекций и до create: правка вынесенного файла должна
+    # менять состав (иначе инстанс не пересоздастся и конфиг разойдётся с гитом молча).
+    if ! rend=$(decl_file "$f"); then
+        record "$name" "decl" "провал" "content_file не развернулся"
+        FAIL=1
+        continue
+    fi
+    f="$rend"
     pkg=$(declared "$f" user.package)
     user=$(svc_user "$f")
     unit="${pkg}.service"

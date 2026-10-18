@@ -38,7 +38,27 @@ echo "=== Изменения в $SUBTREE: $OLD_HASH -> $NEW_HASH"
 echo "--- изменённые файлы:"
 git diff --name-status "$OLD_HASH" "$NEW_HASH" -- "$SUBTREE/"
 
+# 1) Конфиги узла (экспортёры и Vector) — ДО инстансов: к тому моменту, как victoriametrics1
+#    начнёт скрейпить, источники должны быть на месте. Падение этого шага инстансы не блокирует
+#    (они живут и без наблюдаемости), но деплой завершится ненулевым кодом — иначе провал
+#    конфигов узла молча потерялся бы в логе прогона.
+NODE_RC=0
+if [ -f "$REPO_DIR/$SUBTREE/node/apply.sh" ]; then
+    echo "=== конфиги узла: $SUBTREE/node/apply.sh"
+    /bin/bash "$REPO_DIR/$SUBTREE/node/apply.sh" || NODE_RC=$?
+    if [ "$NODE_RC" != 0 ]; then
+        echo "ОШИБКА: конфиги узла применились не полностью (код $NODE_RC)" >&2
+    fi
+else
+    echo "ОШИБКА: нет $SUBTREE/node/apply.sh — конфиги узла не применены (проверь sparse-checkout на узле)" >&2
+    NODE_RC=1
+fi
+
 # Дальше — хостовый контур. Запускаем через /bin/bash явно: агент не должен зависеть
 # от бита исполняемости в репозитории (у моего git core.fileMode=false, и +x легко
 # не попадает в коммит — на узле это давало «Permission denied» и 500 от webhook).
-exec /bin/bash "$REPO_DIR/$SUBTREE/reconcile.sh" "$OLD_HASH" "$NEW_HASH"
+/bin/bash "$REPO_DIR/$SUBTREE/reconcile.sh" "$OLD_HASH" "$NEW_HASH"
+REC_RC=$?
+
+[ "$NODE_RC" = 0 ] && exit "$REC_RC"
+exit "$NODE_RC"

@@ -1,6 +1,6 @@
-# Декларация инстанса VictoriaMetrics (vm1) на skld00.
+# Декларация инстанса VictoriaMetrics (victoriametrics1) на skld00.
 #
-# Подаётся напрямую:  incus-loc launch leap16-base vm1 < этот файл
+# Подаётся напрямую:  incus-loc launch leap16-base victoriametrics1 < этот файл
 # и разбирается хостовым контуром: servers/skld00/reconcile.sh
 #
 # Данные — заранее созданный датасет `tank/vm-data` (recordsize=16K под мелкие
@@ -21,7 +21,7 @@
 #          свои метрики и логи, не выставляя сборщики в LAN. Адрес — статикой, без шлюза,
 #          последний байт по той же схеме (`172.26.50.100`); узел виден тут как `172.26.50.1`
 #          (адрес бриджа) — на него и смотрит скрейп.
-name: vm1
+name: victoriametrics1
 description: "VictoriaMetrics single-node (victoriametrics-loc): приём и хранение метрик"
 
 config:
@@ -75,6 +75,15 @@ config:
 
           [Network]
           Address=172.26.50.100/24
+      # Скрейп-конфиг и аргументы юнита вынесены рядом с декларацией (services/victoriametrics1/):
+      # правка этих файлов меняет состав декларации, поэтому инстанс пересоздаётся — конфиг на
+      # площадке не расходится с гитом.
+      - path: /etc/victoriametrics-loc/scrape.yml
+        permissions: '0644'
+        content_file: victoriametrics1/scrape.yml
+      - path: /etc/victoriametrics-loc/victoriametrics-loc.conf
+        permissions: '0644'
+        content_file: victoriametrics1/victoriametrics-loc.conf
     runcmd:
       - |
         set -euo pipefail
@@ -104,8 +113,8 @@ config:
         zypper --non-interactive --gpg-auto-import-keys refresh
         zypper --non-interactive install -y --no-recommends victoriametrics-loc
         rpm -q victoriametrics-loc >/dev/null
-        systemctl enable victoriametrics-loc.service >/dev/null
-        echo "vm1: сеть поднята ($(ip -4 -o addr show dev eth0 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth1 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth2 | awk '{print $4}' | head -1)), пакет установлен, юнит включён (uid $(id -u victoriametrics-loc))"
+        systemctl enable --now victoriametrics-loc.service >/dev/null
+        echo "victoriametrics1: сеть поднята ($(ip -4 -o addr show dev eth0 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth1 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth2 | awk '{print $4}' | head -1)), пакет установлен, юнит включён (uid $(id -u victoriametrics-loc))"
 
 devices:
   # LAN-плечо: macvlan на физической карте узла (см. комментарий в шапке). Адрес — по DHCP,

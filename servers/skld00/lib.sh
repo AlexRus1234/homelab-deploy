@@ -102,7 +102,7 @@ proj_scalars() {
 # в состав целиком: правка user-data = правка состава → recreate.
 # Комментарии, пустые строки и ключ name: в состав НЕ входят: правка комментария — это не
 # изменение инстанса, и пересоздавать его из-за неё нельзя (раньше входили → правка
-# комментария в vm1.yaml тянула пересоздание боевого сервиса).
+# комментария в victoriametrics1.yaml тянула пересоздание боевого сервиса).
 proj_rest() {
     awk '
       /^config:[[:space:]]*$/ { c=1; print; next }
@@ -127,6 +127,46 @@ proj_rest() {
 }
 
 declared() { proj_scalars "$1" | awk -F= -v k="$2" '$1 == k { print substr($0, length(k) + 2); exit }'; }
+
+# --- вынесенные файлы декларации (content_file) --------------------------------
+# Инлайн `content: |` не всегда удобен: конфиг живёт своей жизнью (например, scrape.yml у
+# victoriametrics1). Тогда в write_files пишется ссылка на файл рядом с декларацией:
+#     - path: /etc/victoriametrics-loc/scrape.yml
+#       content_file: scrape.yml
+# Разворот делается ДО проекций и ДО `incus create`, а не в момент установки: иначе правка
+# вынесенного файла не меняла бы «состав», инстанс не пересоздавался бы, и конфиг на
+# площадке молча расходился бы с гитом (сходимость на декларации, а не на вере).
+# Декларация без content_file возвращается как есть, байт в байт: у неё хеши не меняются.
+decl_file() { # путь декларации → путь к развёрнутому файлу (или к самой декларации)
+    local f="$1" dir out errf rc
+    grep -q '^[[:space:]]*content_file:' "$f" 2>/dev/null || { printf '%s\n' "$f"; return 0; }
+    dir=$(dirname "$f")
+    out=$(mktemp "${TMPDIR:-/tmp}/decl.XXXXXX") || return 1
+    errf="$out.err"
+    awk -v dir="$dir" '
+      match($0, /^[[:space:]]*content_file:[[:space:]]*/) {
+        p=$0; sub(/^[[:space:]]*content_file:[[:space:]]*/, "", p); sub(/[[:space:]]+#.*$/, "", p)
+        ind=substr($0, 1, index($0, "content_file") - 1)
+        file=dir "/" p
+        if ((getline probe < file) < 0) { printf "нет файла %s\n", file > "/dev/stderr"; exit 3 }
+        close(file)
+        print ind "content: |"
+        while ((getline line < file) > 0) {
+            if (line == "") print ""; else print ind "  " line    # пустые строки — без хвостовых пробелов
+        }
+        close(file)
+        next
+      }
+      { print }' "$f" > "$out" 2> "$errf"
+    rc=$?
+    if [ "$rc" != 0 ]; then
+        log "ОШИБКА: не развернул content_file в $f: $(head -1 "$errf")"
+        rm -f "$out" "$errf"
+        return 1
+    fi
+    rm -f "$errf"
+    printf '%s\n' "$out"
+}
 
 # --- карта uid ----------------------------------------------------------------
 # Хостовая сторона uid сервиса: Hostid + (uid - Nsid) по записи uid из volatile.idmap.next.

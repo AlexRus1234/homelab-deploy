@@ -1,6 +1,6 @@
-# Декларация инстанса VictoriaLogs (vl1) на skld00.
+# Декларация инстанса VictoriaLogs (victorialogs1) на skld00.
 #
-# Подаётся напрямую:  incus-loc launch leap16-base vl1 < этот файл
+# Подаётся напрямую:  incus-loc launch leap16-base victorialogs1 < этот файл
 # и разбирается хостовым контуром: servers/skld00/reconcile.sh
 #
 # Раскладка: базовый образ — артефакт со склада (`leap16-base`, живёт на tank/incus),
@@ -27,7 +27,7 @@
 #          на него смотрят экспортёры узла.
 # macvlan-линк Incus создаёт внутри сетевого неймспейса инстанса — на хосте своего
 # интерфейса он не заводит, поэтому хостовые `mv-*` и чужие сети не задеваются.
-name: vl1
+name: victorialogs1
 description: "VictoriaLogs (victorialogs-loc): приём и хранение логов"
 
 config:
@@ -121,7 +121,7 @@ config:
         zypper --non-interactive install -y --no-recommends victorialogs-loc
         rpm -q victorialogs-loc >/dev/null
         systemctl enable victorialogs-loc.service >/dev/null
-        echo "vl1: сеть поднята ($(ip -4 -o addr show dev eth0 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth1 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth2 | awk '{print $4}' | head -1)), пакет установлен, юнит включён (uid $(id -u victorialogs-loc))"
+        echo "victorialogs1: сеть поднята ($(ip -4 -o addr show dev eth0 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth1 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth2 | awk '{print $4}' | head -1)), пакет установлен, юнит включён (uid $(id -u victorialogs-loc))"
 
 devices:
   # LAN-плечо: macvlan на физической карте узла. Имя `eth0` и здесь, и внутри — так
