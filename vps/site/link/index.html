@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <title>AlexRus1234</title>
-<meta name="description" content="Домашний ЦОД: сервисы, доступы, железо">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+<meta name="description" content="Ссылки проекта AlexRus1234">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230ea5e9'/></svg>">
 <style>
   :root{
-    --bg:#0b0f17; --bg2:#0e1420;
+    --bg:#0b0f17;
     --card:rgba(255,255,255,.045); --card-hi:rgba(255,255,255,.075);
     --border:rgba(255,255,255,.10); --border-hi:rgba(255,255,255,.22);
     --fg:#e9eef7; --muted:#94a3b8; --accent:#6ee7ff; --accent2:#a78bfa;
-    --radius:16px; --maxw:1080px;
+    --radius:16px; --maxw:1180px;
   }
   @media (prefers-color-scheme: light){
     :root{
-      --bg:#f6f8fc; --bg2:#eef2f9;
+      --bg:#f6f8fc;
       --card:rgba(255,255,255,.75); --card-hi:#ffffff;
       --border:rgba(15,23,42,.10); --border-hi:rgba(15,23,42,.22);
       --fg:#0f172a; --muted:#5b6b82; --accent:#0ea5e9; --accent2:#7c3aed;
@@ -31,50 +31,46 @@
     -webkit-font-smoothing:antialiased; overflow-x:hidden;
   }
   /* фоновые пятна */
-  .glow{position:fixed; inset:-20vmax; z-index:0; pointer-events:none; filter:blur(60px); opacity:.55}
+  .glow{position:fixed; inset:-20vmax; z-index:0; pointer-events:none; filter:blur(60px); opacity:.5}
   .glow i{position:absolute; display:block; width:46vmax; height:46vmax; border-radius:50%;
     background:radial-gradient(circle at 50% 50%, var(--accent), transparent 62%);
     animation:drift 26s ease-in-out infinite alternate}
+  .glow i:nth-child(1){left:0; top:0}
   .glow i:nth-child(2){background:radial-gradient(circle at 50% 50%, var(--accent2), transparent 62%);
     right:0; bottom:0; animation-duration:32s; animation-direction:alternate-reverse}
-  .glow i:nth-child(1){left:0; top:0}
   @keyframes drift{
     from{transform:translate3d(0,0,0) scale(1)}
     to{transform:translate3d(9vmax,-7vmax,0) scale(1.18)}
   }
   @media (prefers-reduced-motion: reduce){ .glow i{animation:none} }
 
-  .wrap{position:relative; z-index:1; max-width:var(--maxw); margin:0 auto; padding:clamp(28px,6vw,72px) 20px 64px}
+  .wrap{position:relative; z-index:1; max-width:var(--maxw); margin:0 auto; padding:clamp(28px,6vw,64px) 20px 56px}
 
-  header{display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-bottom:26px}
-  .avatar{
-    width:62px;height:62px;border-radius:20px;flex:0 0 auto;display:grid;place-items:center;
-    font-size:30px;border:1px solid var(--border-hi);
-    background:linear-gradient(140deg,var(--card-hi),var(--card));
-    box-shadow:0 10px 30px rgba(0,0,0,.25)
-  }
-  h1{margin:0;font-size:clamp(24px,4.4vw,38px);letter-spacing:-.02em;line-height:1.1}
-  .sub{margin:6px 0 0;color:var(--muted);font-size:15px}
+  header{display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap; margin-bottom:22px}
+  h1{margin:0;font-size:clamp(24px,4vw,34px);letter-spacing:-.02em;line-height:1.1}
   .meta{margin-left:auto;color:var(--muted);font-size:13px;text-align:right}
 
-  .search{position:relative;margin:24px 0 34px;max-width:460px}
+  .search{margin:22px 0 32px;max-width:440px}
   .search input{
-    width:100%;padding:13px 16px 13px 42px;border-radius:14px;color:var(--fg);
+    width:100%;padding:13px 16px;border-radius:14px;color:var(--fg);
     background:var(--card);border:1px solid var(--border);outline:none;font-size:15px;
     transition:border-color .18s, box-shadow .18s, background .18s
   }
   .search input::placeholder{color:var(--muted)}
   .search input:focus{border-color:var(--border-hi);background:var(--card-hi);box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent)}
-  .search span{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px}
 
-  section{margin-bottom:38px}
-  h2{margin:0 0 4px;font-size:15px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent)}
-  .note{margin:0 0 16px;color:var(--muted);font-size:13px}
+  section{margin-bottom:34px}
+  h2{margin:0 0 4px;font-size:14px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent)}
+  .note{margin:0 0 14px;color:var(--muted);font-size:13px}
 
-  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(258px,1fr))}
+  /* одна группа — одна строка: число колонок задаёт рендер через --cols */
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr))}
+  @media (max-width:1040px){
+    .grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+  }
 
   .card{
-    position:relative;display:flex;gap:14px;align-items:flex-start;padding:16px;
+    display:flex;flex-direction:column;gap:2px;padding:15px 16px;
     text-decoration:none;color:inherit;border-radius:var(--radius);
     background:var(--card);border:1px solid var(--border);backdrop-filter:blur(8px);
     transform:translateY(10px);opacity:0;
@@ -87,33 +83,15 @@
     transform:translateY(-3px);border-color:var(--border-hi);background:var(--card-hi);
     box-shadow:0 14px 34px rgba(0,0,0,.28); outline:none
   }
-  .card:hover .ico{transform:scale(1.08) rotate(-3deg)}
-  .ico{font-size:26px;line-height:1;flex:0 0 auto;transition:transform .25s cubic-bezier(.2,.7,.2,1)}
-  .txt{min-width:0}
   .t{font-weight:600;letter-spacing:-.01em}
-  .u{margin-top:2px;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .u{margin-top:1px;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .d{margin-top:7px;color:var(--muted);font-size:13.5px}
-  .tags{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+  .tags{margin-top:auto;padding-top:10px;display:flex;gap:6px;flex-wrap:wrap}
   .tag{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
   .card:hover .tag{border-color:var(--border-hi)}
 
-  .copy{
-    position:absolute;top:10px;right:10px;width:28px;height:28px;display:grid;place-items:center;
-    border-radius:9px;border:1px solid transparent;background:transparent;color:var(--muted);
-    cursor:pointer;opacity:0;transition:opacity .18s, color .18s, border-color .18s, background .18s;font-size:14px
-  }
-  .card:hover .copy,.copy:focus-visible{opacity:1;border-color:var(--border);background:var(--card)}
-  .copy:hover{color:var(--accent)}
-
   .empty{color:var(--muted);padding:14px 0}
-  footer{margin-top:56px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
-  .toast{
-    position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:5;
-    background:var(--card-hi);color:var(--fg);border:1px solid var(--border-hi);
-    padding:10px 16px;border-radius:12px;font-size:13.5px;opacity:0;pointer-events:none;
-    box-shadow:0 12px 30px rgba(0,0,0,.32);transition:opacity .22s, transform .22s
-  }
-  .toast.on{opacity:1;transform:translate(-50%,0)}
+  footer{margin-top:44px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
 </style>
 </head>
 <body>
@@ -121,16 +99,11 @@
 
 <main class="wrap">
   <header>
-    <div class="avatar" id="avatar">🚀</div>
-    <div>
-      <h1 id="title">Загрузка…</h1>
-      <p class="sub" id="subtitle"></p>
-    </div>
+    <h1 id="title">Загрузка…</h1>
     <div class="meta" id="meta"></div>
   </header>
 
   <div class="search">
-    <span aria-hidden="true">⌕</span>
     <input id="q" type="search" placeholder="Фильтр: имя, описание, тег…" autocomplete="off" aria-label="Фильтр ссылок">
   </div>
 
@@ -142,12 +115,9 @@
   </footer>
 </main>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-
 <script>
 (async function () {
   const out = document.getElementById('out');
-  const toast = document.getElementById('toast');
   let data;
 
   try {
@@ -168,21 +138,22 @@
 
   document.title = site.title || document.title;
   document.getElementById('title').textContent = site.title || '';
-  document.getElementById('subtitle').textContent = site.subtitle || '';
-  if (site.avatar) document.getElementById('avatar').textContent = site.avatar;
+  document.getElementById('meta').innerHTML = site.meta ? site.meta : '';
   document.getElementById('footer').textContent = site.footer || '';
   const totalText = all.length + ' ' + plural(all.length, 'ссылка', 'ссылки', 'ссылок');
   document.getElementById('count').textContent = totalText;
-  document.getElementById('meta').innerHTML = site.meta ? site.meta : '';
   out.innerHTML = '';
 
-  // рендер
+  // рендер: одна группа — одна строка карточек
   let idx = 0;
   groups.forEach(g => {
     const sec = document.createElement('section');
     const h = document.createElement('h2'); h.textContent = g.name; sec.appendChild(h);
     if (g.note) { const n = document.createElement('p'); n.className = 'note'; n.textContent = g.note; sec.appendChild(n); }
-    const grid = document.createElement('div'); grid.className = 'grid';
+
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    grid.style.setProperty('--cols', Math.max(1, g.links.length));
 
     g.links.forEach(l => {
       const a = document.createElement('a');
@@ -192,31 +163,16 @@
       a.style.animationDelay = Math.min(idx++ * 45, 700) + 'ms';
       a.dataset.hay = [g.name, l.title, l.url, l.description, (l.tags || []).join(' ')].join(' ').toLowerCase();
 
-      const ico = document.createElement('div'); ico.className = 'ico'; ico.textContent = l.icon || '🔗';
-      const txt = document.createElement('div'); txt.className = 'txt';
-
       const t = document.createElement('div'); t.className = 't'; t.textContent = l.title || l.url;
       const u = document.createElement('div'); u.className = 'u'; u.textContent = pretty(l.url);
-      txt.append(t, u);
+      a.append(t, u);
 
-      if (l.description) { const d = document.createElement('div'); d.className = 'd'; d.textContent = l.description; txt.appendChild(d); }
+      if (l.description) { const d = document.createElement('div'); d.className = 'd'; d.textContent = l.description; a.appendChild(d); }
       if (l.tags && l.tags.length) {
         const tg = document.createElement('div'); tg.className = 'tags';
         l.tags.forEach(x => { const s = document.createElement('span'); s.className = 'tag'; s.textContent = x; tg.appendChild(s); });
-        txt.appendChild(tg);
+        a.appendChild(tg);
       }
-      a.append(ico, txt);
-
-      const c = document.createElement('button');
-      c.className = 'copy'; c.type = 'button'; c.textContent = '⧉';
-      c.title = 'Скопировать ссылку'; c.setAttribute('aria-label', 'Скопировать ' + l.url);
-      c.addEventListener('click', async ev => {
-        ev.preventDefault(); ev.stopPropagation();
-        try { await navigator.clipboard.writeText(l.url); say('Ссылка скопирована'); }
-        catch { say('Не удалось скопировать'); }
-      });
-      a.appendChild(c);
-
       grid.appendChild(a);
     });
 
@@ -242,10 +198,6 @@
       : totalText;
   });
 
-  function say(msg) {
-    toast.textContent = msg; toast.classList.add('on');
-    clearTimeout(say._t); say._t = setTimeout(() => toast.classList.remove('on'), 1600);
-  }
   function pretty(u) {
     try { const x = new URL(u); return x.host + (x.pathname !== '/' ? x.pathname : ''); }
     catch { return u; }

@@ -1,8 +1,6 @@
 {
   "site": {
     "title": "AlexRus1234",
-    "avatar": "🐴",
-    "subtitle": "Самохостинг и HomeLab: видео, код, сообщество",
     "footer": "Статика, Caddy · всё правится в links.json"
   },
   "groups": [
@@ -13,30 +11,22 @@
         {
           "title": "YouTube",
           "url": "https://www.youtube.com/channel/UCdarzc1p7wqZK51rYZIoImw",
-          "icon": "🎬",
-          "description": "Основной канал с выпусками",
-          "tags": ["видео", "youtube"]
+          "description": "Основной канал с выпусками"
         },
         {
           "title": "Rutube",
           "url": "https://rutube.ru/channel/33264914/",
-          "icon": "📺",
-          "description": "Зеркало канала",
-          "tags": ["видео", "rutube"]
+          "description": "Зеркало канала"
         },
         {
           "title": "Дзен",
           "url": "https://dzen.ru/alexrus1234",
-          "icon": "📰",
-          "description": "Зеркало канала",
-          "tags": ["видео", "дзен"]
+          "description": "Зеркало канала"
         },
         {
           "title": "VK Видео",
           "url": "https://vkvideo.ru/@club195345569",
-          "icon": "🎞️",
-          "description": "Видео в сообществе ВКонтакте",
-          "tags": ["видео", "vk"]
+          "description": "Видео в сообществе ВКонтакте"
         }
       ]
     },
@@ -47,23 +37,17 @@
         {
           "title": "Telegram",
           "url": "https://t.me/AlexRus1234Chanel",
-          "icon": "✈️",
-          "description": "Анонсы выпусков и обсуждения",
-          "tags": ["телеграм", "чат"]
+          "description": "Анонсы выпусков и обсуждения"
         },
         {
-          "title": "Matrix — прямое приглашение",
+          "title": "Matrix: прямое приглашение",
           "url": "https://matrix.to/#/#alexrus1234:matrix.alexrus1234.ru",
-          "icon": "🔗",
-          "description": "Пространство проекта: откроется в любом Matrix-клиенте",
-          "tags": ["matrix", "space"]
+          "description": "Пространство проекта — откроется в любом Matrix-клиенте"
         },
         {
-          "title": "Matrix — через мой Element",
+          "title": "Matrix: через наш Element",
           "url": "https://element.alexrus1234.ru/#/space/#alexrus1234:matrix.alexrus1234.ru",
-          "icon": "💬",
-          "description": "То же пространство, но сразу в клиенте на своём сервере",
-          "tags": ["matrix", "element"]
+          "description": "То же пространство, но сразу в клиенте на своём сервере"
         }
       ]
     },
@@ -74,30 +58,22 @@
         {
           "title": "Оригинал",
           "url": "https://git.alexrus1234.ru/AlexRus1234/AlexRus1234-HomeLab-Commands",
-          "icon": "🏠",
-          "description": "Скрипты, конфиги и команды из выпусков",
-          "tags": ["git", "оригинал"]
+          "description": "Скрипты, конфиги и команды из выпусков"
         },
         {
           "title": "GitHub",
           "url": "https://github.com/AlexRus1234/AlexRus1234-HomeLab-Commands",
-          "icon": "🐙",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Codeberg",
           "url": "https://codeberg.org/AlexRus1234/AlexRus1234-HomeLab-Commands",
-          "icon": "⛰️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Mos.Hub",
           "url": "https://hub.mos.ru/AlexRUS1234/alexrus1234-homelab-commands",
-          "icon": "🏙️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         }
       ]
     },
@@ -108,30 +84,22 @@
         {
           "title": "Оригинал",
           "url": "https://git.alexrus1234.ru/AlexRus1234/homelab-deploy",
-          "icon": "🏠",
-          "description": "Состояние узлов, из которого разворачивается лаба",
-          "tags": ["git", "оригинал"]
+          "description": "Состояние узлов, из которого разворачивается лаба"
         },
         {
           "title": "GitHub",
           "url": "https://github.com/AlexRus1234/homelab-deploy",
-          "icon": "🐙",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Codeberg",
           "url": "https://codeberg.org/AlexRus1234/homelab-deploy",
-          "icon": "⛰️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Mos.Hub",
           "url": "https://hub.mos.ru/AlexRUS1234/homelab-deploy",
-          "icon": "🏙️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         }
       ]
     },
@@ -142,30 +110,22 @@
         {
           "title": "Оригинал",
           "url": "https://git.alexrus1234.ru/AlexRus1234/Intermasq",
-          "icon": "🏠",
-          "description": "Управление DNS и записями dnsmasq",
-          "tags": ["git", "оригинал"]
+          "description": "Управление DNS и записями dnsmasq"
         },
         {
           "title": "GitHub",
           "url": "https://github.com/AlexRus1234/Intermasq",
-          "icon": "🐙",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Codeberg",
           "url": "https://codeberg.org/AlexRus1234/Intermasq",
-          "icon": "⛰️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Mos.Hub",
           "url": "https://hub.mos.ru/AlexRUS1234/intermasq",
-          "icon": "🏙️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         }
       ]
     },
@@ -176,30 +136,22 @@
         {
           "title": "Оригинал",
           "url": "https://git.alexrus1234.ru/AlexRus1234/Lentovodets",
-          "icon": "🏠",
-          "description": "Программа для работы с ленточной библиотекой",
-          "tags": ["git", "оригинал"]
+          "description": "Программа для работы с ленточной библиотекой"
         },
         {
           "title": "GitHub",
           "url": "https://github.com/AlexRus1234/Lentovodets",
-          "icon": "🐙",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Codeberg",
           "url": "https://codeberg.org/AlexRus1234/Lentovodets",
-          "icon": "⛰️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Mos.Hub",
           "url": "https://hub.mos.ru/AlexRUS1234/lentovodets",
-          "icon": "🏙️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         }
       ]
     },
@@ -210,30 +162,22 @@
         {
           "title": "Оригинал",
           "url": "https://git.alexrus1234.ru/AlexRus1234/Khrazhevnik",
-          "icon": "🏠",
-          "description": "Кеш apt, rpm, pacman, apk, nix",
-          "tags": ["git", "оригинал"]
+          "description": "Кеш apt, rpm, pacman, apk, nix"
         },
         {
           "title": "GitHub",
           "url": "https://github.com/AlexRus1234/Khrazhevnik",
-          "icon": "🐙",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Codeberg",
           "url": "https://codeberg.org/AlexRus1234/Khrazhevnik",
-          "icon": "⛰️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         },
         {
           "title": "Mos.Hub",
           "url": "https://hub.mos.ru/AlexRUS1234/khrazhevnik",
-          "icon": "🏙️",
-          "description": "Зеркало",
-          "tags": ["git", "зеркало"]
+          "description": "Зеркало"
         }
       ]
     }
