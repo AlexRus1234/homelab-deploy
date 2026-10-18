@@ -282,11 +282,23 @@ remove_orphans() { # старый-хеш, новый-хеш
 
 # --- окружение ---------------------------------------------------------------
 RECREATE_ONLY=""
-if [ "${1:-}" = "--recreate" ]; then
-    RECREATE_ONLY="${2:-}"
-    [ -n "$RECREATE_ONLY" ] || { echo "использование: reconcile.sh --recreate <имя>" >&2; exit 2; }
-    log "=== reconcile: принудительное пересоздание $RECREATE_ONLY"
-fi
+MODE="up"                       # up — привести всё объявленное к жизни; down — снять его вручную
+# Разбор аргументов: sync-state передаёт два git-хеша (старый и новый) — это обычный проход,
+# а не ключ, поэтому «всё, что не начинается с дефиса» принимаем молча.
+case "${1:-}" in
+    --recreate)
+        RECREATE_ONLY="${2:-}"
+        [ -n "$RECREATE_ONLY" ] || { echo "использование: reconcile.sh --recreate <имя>" >&2; exit 2; }
+        log "=== reconcile: принудительное пересоздание $RECREATE_ONLY"
+        ;;
+    --up)   MODE="up" ;;
+    --down) MODE="down" ;;
+    "")     ;;
+    -*)     echo "неизвестный ключ: $1" >&2
+            echo "использование: reconcile.sh [--up | --down | --recreate <имя>] [<старый-хеш> <новый-хеш>]" >&2
+            exit 2 ;;
+    *)      ;;                  # <старый-хеш> от sync-state — обычный проход
+esac
 log "=== reconcile: ${1:-нет} -> ${2:-нет}"
 command -v incus-loc >/dev/null 2>&1 || { log "ОШИБКА: нет incus-loc — это не узел Incus"; exit 1; }
 
@@ -404,7 +416,108 @@ net_preconditions() { # сети, на которые ссылаются дек�
     return 0
 }
 
+# --- ручное снятие (--down) ---------------------------------------------------
+# Демонстрационный и сервисный режим: снять ВСЁ объявленное — инстансы, наши стоянки и наши
+# сети. Сеть уходит последней: пока к бриджу подключены инстансы, его не удалить.
+# Данные не трогаются вообще (кроме страховочного снапшота датасета): датасеты остаются на
+# месте, и следующее `--up` возвращает всё из деклараций. Трогаем только объекты с нашим
+# маркером — чужой инстанс или чужая сеть останутся как есть.
+teardown_instance() { # имя, датасет (может быть пустым)
+    local n="$1" ds="$2" marker
+    incus-loc info "$n" >/dev/null 2>&1 || { log "снятие $n: инстанса нет"; return 0; }
+    marker=$(incus-loc config get "$n" user.managed-by 2>/dev/null || true)
+    if [ "$marker" != "$MANAGED_BY" ]; then
+        log "снятие $n: ПРОПУСК — нет маркера $MANAGED_BY"
+        record "$n" "down" "пропуск" "нет маркера контура — не трогаю"
+        return 0
+    fi
+    if [ "$DRY_RUN" = 1 ]; then
+        log "сделал бы: incus-loc stop $n; incus-loc delete $n (данные ${ds:-—} остаются)"
+        return 0
+    fi
+    if [ -n "$ds" ] && zfs list -H -o name "$ds" >/dev/null 2>&1; then
+        if zfs snapshot "${ds}@removed-$(date +%Y%m%d-%H%M%S)" >/dev/null 2>&1; then
+            log "данные: снапшот ${ds}@removed-… (страховка перед снятием; сам датасет не трогаю)"
+        else
+            log "ВНИМАНИЕ: снапшот $ds не снялся — снимаю инстанс всё равно, данные на диске"
+        fi
+    fi
+    incus-loc stop "$n" >/dev/null 2>&1 || true
+    if incus-loc delete "$n" >/dev/null 2>&1; then
+        log "снятие: инстанс $n удалён (данные в ${ds:-—} остались)"
+        record "$n" "down" "ok" "снят вручную (--down), данные остались в ${ds:-—}"
+    else
+        log "ОШИБКА: не удалось снять $n"
+        record "$n" "down" "провал" "удаление $n вручную"
+        FAIL=1
+    fi
+}
+
+teardown_standbys() { # наши стоянки <имя>-pre-<дата>: их оставляет пересоздание
+    local n marker
+    while IFS= read -r n; do
+        [ -n "$n" ] || continue
+        case "$n" in
+            *-pre-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+            *) continue ;;
+        esac
+        marker=$(incus-loc config get "$n" user.managed-by 2>/dev/null || true)
+        [ "$marker" = "$MANAGED_BY" ] || continue
+        if [ "$DRY_RUN" = 1 ]; then log "сделал бы: incus-loc delete $n --force (стоянка)"; continue; fi
+        if incus-loc delete "$n" --force >/dev/null 2>&1; then
+            log "снятие: стоянка $n удалена"
+            record "$n" "down" "ok" "стоянка снята вручную (--down)"
+        else
+            log "ОШИБКА: не смог снять стоянку $n"
+            record "$n" "down" "провал" "стоянка $n"
+            FAIL=1
+        fi
+    done < <(incus-loc list -c n --format csv 2>/dev/null)
+}
+
+teardown_network() { # имя: только наша сеть (по маркеру)
+    local n="$1" marker
+    incus-loc network show "$n" >/dev/null 2>&1 || { log "снятие сети $n: её нет"; return 0; }
+    marker=$(incus-loc network get "$n" user.managed-by 2>/dev/null || true)
+    if [ "$marker" != "$MANAGED_BY" ]; then
+        log "снятие сети $n: ПРОПУСК — нет маркера $MANAGED_BY"
+        record "$n" "down" "пропуск" "нет маркера контура — сеть не трогаю"
+        return 0
+    fi
+    if [ "$DRY_RUN" = 1 ]; then log "сделал бы: incus-loc network delete $n"; return 0; fi
+    if incus-loc network delete "$n" >/dev/null 2>&1; then
+        log "снятие: сеть $n удалена"
+        record "$n" "down" "ok" "сеть снята вручную (--down)"
+    else
+        log "ОШИБКА: не смог удалить сеть $n (подключён кто-то ещё?)"
+        record "$n" "down" "провал" "удаление сети $n"
+        FAIL=1
+    fi
+}
+
+teardown_all() {
+    local f name net
+    log "режим --down: снимаю объявленное (инстансы, наши стоянки, наши сети); данные не трогаю"
+    for f in "$SUB"/services/*.yaml; do
+        [ -e "$f" ] || continue
+        name=$(basename "$f" .yaml)
+        teardown_instance "$name" "$(declared "$f" user.data_dataset)"
+    done
+    teardown_standbys
+    for f in "$SUB"/networks/*.yaml; do
+        [ -e "$f" ] || continue
+        net=$(basename "$f" .yaml)
+        teardown_network "$net"
+    done
+}
+
 # --- применение --------------------------------------------------------------
+if [ "$MODE" = "down" ]; then
+    teardown_all
+    log "=== reconcile завершён"
+    exit "$FAIL"
+fi
+
 reconcile_networks        # сети — ДО инстансов (устройство на несуществующей сети роняет create)
 net_preconditions
 if [ "$NET_MISSING" = 1 ]; then

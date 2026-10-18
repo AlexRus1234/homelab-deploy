@@ -51,6 +51,7 @@
 
 ```sh
 bash servers/skld00/tests/networks-test.sh    # сети: создание, приведение ключей, предпосылки инстансов
+bash servers/skld00/tests/teardown-test.sh    # ручные режимы --down/--up: снять и поднять всё объявленное
 bash servers/skld00/tests/update-test.sh       # ночной контур: обновление, откат, уборка
 bash servers/skld00/tests/reconcile-test.sh    # применение деклараций: create/recreate, хеши, uid
 bash servers/skld00/tests/remove-test.sh       # снятие по декларации, удалённой из git
@@ -193,6 +194,7 @@ homelab-deploy/
         ├── tests/                 # харнессы на заглушках: узла не требуют (см. tests/README.md)
         │   ├── harness-lib.sh
         │   ├── networks-test.sh
+        │   ├── teardown-test.sh
         │   ├── update-test.sh
         │   ├── reconcile-test.sh
         │   └── remove-test.sh
