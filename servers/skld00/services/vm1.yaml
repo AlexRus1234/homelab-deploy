@@ -7,7 +7,8 @@
 # случайные записи метрик), владельца датасета (100000+uid) ставит хостовый контур
 # до запуска сервиса — см. services/README.md.
 #
-# Сеть (замерено на живом Incus 2026-10-13): два macvlan-плеча на физических картах узла.
+# Сеть (замерено на живом Incus 2026-10-13): три плеча — два macvlan на физических картах
+# узла и приватный бридж Incus под наблюдаемость.
 #   eth0 — LAN, адрес по DHCP от роутера (имя `eth0` подхватывает запёкшийся в базе
 #          eth0.network с DHCP=ipv4 и ClientIdentifier=mac), MAC объявлен константой →
 #          резервация на роутере (MAC → 172.20.50.100) переживает пересоздание инстанса.
@@ -15,6 +16,11 @@
 #   eth1 — прямой линк skld00↔yadr01 (карта enp8s0, пир 172.21.6.250): статика из
 #          user-data, без шлюза — DHCP-сервера на линке нет. Последний байт адреса — тот же,
 #          что в LAN (`172.20.50.100` ↔ `172.21.6.100`): у сервиса одна схема адресации.
+#   eth2 — приватная сеть узла `observ0` (`172.26.50.0/24`, DHCP и NAT выключены, из LAN
+#          не маршрутизируется; см. 01_архитектура_и_сеть.md). По ней узел отдаёт инстансам
+#          свои метрики и логи, не выставляя сборщики в LAN. Адрес — статикой, без шлюза,
+#          последний байт по той же схеме (`172.26.50.100`); узел виден тут как `172.26.50.1`
+#          (адрес бриджа) — на него и смотрит скрейп.
 name: vm1
 description: "VictoriaMetrics single-node (victoriametrics-loc): приём и хранение метрик"
 
@@ -59,6 +65,16 @@ config:
 
           [Network]
           Address=172.21.6.100/24
+      - path: /etc/systemd/network/21-eth2.network
+        permissions: '0644'
+        content: |
+          # Приватная сеть узла observ0: сюда приходит служебный трафик наблюдаемости.
+          # Шлюза нет намеренно — маршрут по умолчанию у сервиса один и он принадлежит LAN.
+          [Match]
+          Name=eth2
+
+          [Network]
+          Address=172.26.50.100/24
     runcmd:
       - |
         set -euo pipefail
@@ -74,6 +90,9 @@ config:
         networkctl reconfigure eth1 >/dev/null 2>&1 || true
         ip -4 -o addr show dev eth1 2>/dev/null | grep -q '172\.21\.6\.100' \
           || { echo "линк (eth1): адрес 172.21.6.100 не поднялся"; exit 1; }
+        networkctl reconfigure eth2 >/dev/null 2>&1 || true
+        ip -4 -o addr show dev eth2 2>/dev/null | grep -q '172\.26\.50\.100' \
+          || { echo "приватная сеть (eth2): адрес 172.26.50.100 не поднялся"; exit 1; }
         # Только пакет и включение юнита: запуск делает хостовый контур после chown
         # датасета (внутри контейнера владельца примонтированного датасета не сменить).
         test -f /etc/pki/trust/anchors/step-ca.crt
@@ -86,7 +105,7 @@ config:
         zypper --non-interactive install -y --no-recommends victoriametrics-loc
         rpm -q victoriametrics-loc >/dev/null
         systemctl enable victoriametrics-loc.service >/dev/null
-        echo "vm1: сеть поднята ($(ip -4 -o addr show dev eth0 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth1 | awk '{print $4}' | head -1)), пакет установлен, юнит включён (uid $(id -u victoriametrics-loc))"
+        echo "vm1: сеть поднята ($(ip -4 -o addr show dev eth0 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth1 | awk '{print $4}' | head -1) / $(ip -4 -o addr show dev eth2 | awk '{print $4}' | head -1)), пакет установлен, юнит включён (uid $(id -u victoriametrics-loc))"
 
 devices:
   # LAN-плечо: macvlan на физической карте узла (см. комментарий в шапке). Адрес — по DHCP,
@@ -104,6 +123,14 @@ devices:
     parent: enp8s0
     name: eth1
     hwaddr: "02:76:6d:01:00:02"
+  # Приватная сеть узла (бридж Incus `observ0`): DHCP и NAT выключены, из LAN не
+  # маршрутизируется — служебный трафик наблюдаемости идёт здесь и наружу не виден.
+  # Адрес — файлом в user-data; шлюза нет, маршрут по умолчанию остаётся у LAN.
+  eth2:
+    type: nic
+    network: observ0
+    name: eth2
+    hwaddr: "02:76:6d:02:00:02"
   data:
     type: disk
     source: /tank/vm-data
