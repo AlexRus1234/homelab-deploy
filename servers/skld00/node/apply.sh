@@ -24,10 +24,18 @@ PORTS="9100 9633 9134"                    # порты источников (д�
 SYSTEMCTL=${SYSTEMCTL:-systemctl}
 SS=${SS:-ss}
 OFF_FLAG=${OFF_FLAG:-/etc/lxc-automation.off}
+STATE_DIR=${STATE_DIR:-/var/lib/lxc-update}
 DRY_RUN=${DRY_RUN:-0}
 FAIL=0
 
 log() { printf '%s %s\n' "$(date '+%F %T')" "$*"; }
+
+# Строка в тот же отчёт, что пишет контур: иначе про шаг конфигов узла в статусе не остаётся
+# ничего, и «отработал ли он» приходится выяснять по метке времени файлов.
+record() { # результат, подробности
+    mkdir -p "$STATE_DIR" 2>/dev/null || true
+    printf '%s\t%s\t%s\t%s\t%ss\n' "узел" "конфиги" "$1" "$2" "$SECONDS" >> "$STATE_DIR/status" 2>/dev/null || true
+}
 
 # Выключатель у нас общий с остальной автоматикой: пока флаг на месте, ничего не меняем.
 if [ -f "$OFF_FLAG" ]; then
@@ -104,6 +112,7 @@ done
 
 if [ "$DRY_RUN" = 1 ]; then
     log "отчёт: конфиги узла не применялись (режим отчёта)"
+    record "пропуск" "режим отчёта (выключатель автоматики $OFF_FLAG)"
     exit "$FAIL"
 fi
 
@@ -127,7 +136,9 @@ done
 
 if [ "$FAIL" = 0 ]; then
     log "конфиги узла: ок (метрики — в victoriametrics1, логи — в VictoriaLogs; см. README.md)"
+    record "ok" "источники на $LISTEN_ADDR ($PORTS), Vector активен, файлов из репо: 4"
 else
     log "конфиги узла: провал — смотри строки выше"
+    record "провал" "см. вывод шага конфигов узла в логе деплоя"
 fi
 exit "$FAIL"
