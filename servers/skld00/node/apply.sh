@@ -4,11 +4,15 @@
 # Запускается деплоем (../sync-state.sh, до контура инстансов) и вручную:
 #   sudo /opt/appdata/git-repo/servers/skld00/node/apply.sh
 #
-# Идемпотентно: файл кладётся только при расхождении, юнит перезапускается только тогда,
-# когда его конфиг менялся, пакет доставляется только если бинарника нет — то есть сеть
-# нужна лишь при первой установке, а не на каждом пуше.
+# Что НЕ делает: не ставит пакеты и не меняет enable-состояние юнитов — установка и службы на
+# узле принадлежат владельцу. Наш шаг — файлы конфигов и перезапуск того юнита, чей конфиг
+# изменился (иначе новые аргументы не вступят в силу). Нет бинарника или юнит не активен —
+# провал прогона с готовой командой, а не молчаливое действие за владельца.
 #
-# Окружение подменяемо (ETC, LISTEN_ADDR, SYSTEMCTL, PACMAN, SS, NODE_DIR) — на этом стоит
+# Идемпотентно: файл кладётся только при расхождении, юнит перезапускается только тогда,
+# когда его конфиг менялся.
+#
+# Окружение подменяемо (ETC, LISTEN_ADDR, SYSTEMCTL, SS, NODE_DIR) — на этом стоит
 # tests/node-test.sh, который гоняет скрипт без узла.
 set -uo pipefail
 
@@ -18,7 +22,6 @@ TEXTFILE_DIR=${TEXTFILE_DIR:-/var/lib/node_exporter/textfile_collector}
 LISTEN_ADDR=${LISTEN_ADDR:-172.26.50.1}   # адрес бриджа observ0: его видят только инстансы
 PORTS="9100 9633 9134"                    # порты источников (для приёмки ниже)
 SYSTEMCTL=${SYSTEMCTL:-systemctl}
-PACMAN=${PACMAN:-pacman}
 SS=${SS:-ss}
 OFF_FLAG=${OFF_FLAG:-/etc/lxc-automation.off}
 DRY_RUN=${DRY_RUN:-0}
@@ -42,13 +45,14 @@ dsts=("$ETC/conf.d/node_exporter-loc"
       "$ETC/conf.d/zfs_exporter-loc"
       "$ETC/vector-loc/vector.yaml")
 
-# --- пакеты: только если бинарника нет ----------------------------------------
-# Имена бинарников совпадают с именами пакетов, поэтому проверка — по бинарнику в PATH.
+# --- пакеты: только проверка, доставки НЕТ ------------------------------------
+# Пакеты ставит владелец узла (и сервисы могут быть уже установлены и запущены под своими
+# юнитами) — автоустановка из репо здесь была бы самоуправством. Нет бинарника → провал
+# прогона с готовой командой, а не повод что-то доставлять.
 for u in "${units[@]}"; do
-    if command -v "$u" >/dev/null 2>&1; then continue; fi
-    if [ "$DRY_RUN" = 1 ]; then log "сделал бы: $PACMAN -S --noconfirm --needed $u"; continue; fi
-    log "пакета нет — ставлю $u"
-    $PACMAN -S --noconfirm --needed "$u" || { log "ОШИБКА: $PACMAN -S $u не удался"; FAIL=1; }
+    command -v "$u" >/dev/null 2>&1 && continue
+    log "ОШИБКА: нет бинарника $u — пакет ставит владелец узла: pacman -S --needed $u"
+    FAIL=1
 done
 
 # --- файлы конфигов -----------------------------------------------------------
@@ -70,25 +74,31 @@ for i in "${!units[@]}"; do
     fi
 done
 
-# --- юниты: включить и поднять; перезапуск — только при смене конфига ----------
+# --- юниты: наш шаг — конфиг, а не состояние службы ----------------------------
+# enable-состояние не меняем: службы на узле заведены владельцем (и уже могут работать под
+# своими юнитами). Доводим конфиг и перезапускаем тот юнит, чей конфиг изменился — иначе
+# новые аргументы не вступят в силу.
 if [ "$DRY_RUN" != 1 ]; then
     install -d -m 0755 "$TEXTFILE_DIR" 2>/dev/null \
         || log "ВНИМАНИЕ: не создал $TEXTFILE_DIR (метрики контура пишет update.sh)"
 fi
 for i in "${!units[@]}"; do
     u="${units[$i]}"
-    if [ "$DRY_RUN" = 1 ]; then log "сделал бы: $SYSTEMCTL enable --now $u"; continue; fi
-    if ! $SYSTEMCTL enable --now "$u" >/dev/null 2>&1; then
-        log "ОШИБКА: $SYSTEMCTL enable --now $u"
-        FAIL=1; continue
+    if [ "$DRY_RUN" = 1 ]; then log "сделал бы: $SYSTEMCTL restart $u (только если конфиг менялся)"; continue; fi
+    if ! $SYSTEMCTL is-enabled --quiet "$u" 2>/dev/null; then
+        log "ВНИМАНИЕ: юнит $u не включён — после перезагрузки служба не поднимется (включает владелец: systemctl enable $u)"
     fi
     case " ${changed[*]-} " in
-        *" $u "*) if $SYSTEMCTL restart "$u" >/dev/null 2>&1; then
-                      log "юнит перезапущен (конфиг изменился): $u"
-                  else
-                      log "ОШИБКА: $SYSTEMCTL restart $u"
-                      FAIL=1
-                  fi ;;
+        *" $u "*)
+            if ! $SYSTEMCTL is-active --quiet "$u" 2>/dev/null; then
+                log "ОШИБКА: юнит $u не активен — конфиг разложен, но применить его некому (запуск за владельцем: systemctl start $u)"
+                FAIL=1
+            elif $SYSTEMCTL restart "$u" >/dev/null 2>&1; then
+                log "юнит перезапущен (конфиг изменился): $u"
+            else
+                log "ОШИБКА: $SYSTEMCTL restart $u"
+                FAIL=1
+            fi ;;
     esac
 done
 
