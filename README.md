@@ -210,5 +210,6 @@ homelab-deploy/
             └── victoriametrics1.yaml           # VictoriaMetrics (:8428)
 │
 └── tools/
-    └── tg-deny                            # список запретов моста: add/del/list (гайд 16)
+    ├── tg-deny                            # список запретов моста: add/del/list (гайд 16)
+    └── tg-healthcheck                     # watchdog: рестарт моста при потере соединения (гайд 16)
 ```

@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# tg-healthcheck — перезапуск моста, который потерял соединение с Telegram.
+#
+# Мост после кратковременного падения прокси остаётся с неинициализированным
+# соединением: в журнале идёт поток "rpc error code 400: CONNECTION_NOT_INITED",
+# сам он не переподключается, а процесс жив, поэтому systemd его не трогает.
+# Скрипт считает такие ошибки в скользящем окне и перезапускает юнит.
+#
+# Логи пишутся только в /dev/shm (RAM), журнал не засоряется.
+# Юнит запускает его с --loop (проверка раз в TG_INTERVAL секунд).
+
+set -uo pipefail
+
+UNIT="${TG_UNIT:-mautrix-telegram}"
+WINDOW="${TG_WINDOW:-4min}"          # окно подсчёта: два цикла по 2 минуты
+THRESHOLD="${TG_THRESHOLD:-10}"      # столько ошибок в окне = обрыв
+COOLDOWN="${TG_COOLDOWN:-900}"       # не чаще одного рестарта в 15 минут
+PROXY="${TG_PROXY:-172.20.0.1:1080}" # прокси моста: если он лежит, рестарт не поможет
+INTERVAL="${TG_INTERVAL:-120}"       # период проверки в режиме --loop
+DRY_RUN="${TG_DRY_RUN:-0}"
+
+MARKER="CONNECTION_NOT_INITED"
+STATE="/dev/shm/tg-healthcheck.state"
+LOG="/dev/shm/tg-healthcheck.log"
+
+log() {
+	printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*" >>"$LOG"
+}
+
+count_errors() {
+	journalctl -u "$UNIT" --since "-$WINDOW" --no-pager -o cat 2>/dev/null |
+		grep -c -- "$MARKER" 2>/dev/null || true
+}
+
+proxy_up() {
+	local host="${PROXY%:*}" port="${PROXY##*:}"
+	timeout 3 bash -c "cat < /dev/null > /dev/tcp/$host/$port" 2>/dev/null
+}
+
+check() {
+	local cnt now last
+	cnt="$(count_errors)"
+	cnt="${cnt:-0}"
+	if [ "$cnt" -lt "$THRESHOLD" ]; then
+		return 0
+	fi
+	now="$(date +%s)"
+	if [ -f "$STATE" ]; then
+		last="$(cat "$STATE" 2>/dev/null || echo 0)"
+		if [ $((now - last)) -lt "$COOLDOWN" ]; then
+			return 0
+		fi
+	fi
+	if ! proxy_up; then
+		log "ошибок $cnt за $WINDOW, но прокси $PROXY недоступен — рестарт не делаю"
+		printf '%s' "$now" >"$STATE"
+		return 0
+	fi
+	if [ "$DRY_RUN" = "1" ]; then
+		log "DRY-RUN: ошибок $cnt за $WINDOW, прокси $PROXY доступен — перезапустил бы $UNIT"
+	else
+		if systemctl restart "$UNIT"; then
+			log "ошибок $cnt за $WINDOW, прокси $PROXY доступен — $UNIT перезапущен"
+		else
+			log "ошибок $cnt за $WINDOW — не удалось перезапустить $UNIT"
+		fi
+	fi
+	printf '%s' "$now" >"$STATE"
+}
+
+case "${1:-}" in
+	--check | "")
+		check
+		;;
+	--loop)
+		while :; do
+			check
+			sleep "$INTERVAL"
+		done
+		;;
+	--status)
+		echo "юнит:     $UNIT"
+		echo "окно:     $WINDOW (порог $THRESHOLD ошибок)"
+		echo "cooldown: ${COOLDOWN}s"
+		if proxy_up; then
+			echo "прокси:   $PROXY доступен"
+		else
+			echo "прокси:   $PROXY НЕ доступен"
+		fi
+		echo "ошибок в окне: $(count_errors)"
+		echo "--- лог (RAM: $LOG) ---"
+		tail -5 "$LOG" 2>/dev/null || echo "(пусто)"
+		;;
+	*)
+		echo "использование: tg-healthcheck [--check|--loop|--status]" >&2
+		exit 2
+		;;
+esac

@@ -1,0 +1,17 @@
+[Unit]
+Description=Watchdog for mautrix-telegram (restart on CONNECTION_NOT_INITED)
+Documentation=https://git.alexrus1234.ru/AlexRus1234/homelab-deploy
+After=mautrix-telegram.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/tg-healthcheck --loop
+Restart=always
+RestartSec=10
+Nice=10
+# вывод подавлен: скрипт пишет только в /dev/shm, журнал не засоряется
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

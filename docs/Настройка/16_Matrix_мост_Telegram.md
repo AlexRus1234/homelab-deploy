@@ -280,6 +280,46 @@ tg-deny help
 Без шага 2 фильтр не поможет: он действует при создании комнаты, а приглашение по существующему порталу приходит
 независимо от списка. Возврат: `tg-deny del <id>`, затем `!tg create-portal <id>` либо просто дождаться сообщения.
 
+### Watchdog соединения: `tg-healthcheck`
+
+Мост ходит в Telegram через SOCKS-прокси (`network.proxy`, у нас `172.20.0.1:1080`). Когда прокси кратковременно
+отваливается, gotd теряет соединение и **не переподключается сам**: процесс живёт, `systemctl is-active` показывает
+`active`, а в журнале идёт поток
+
+```
+ERR Failed to get difference, retrying in 5 seconds... error="rpc error code 400: CONNECTION_NOT_INITED"
+```
+
+и сообщения не ходят ни в одну сторону. `Restart=always` тут не помогает — падать нечему. Перезапуск руками
+восстанавливает связь сразу.
+
+`tools/tg-healthcheck` делает это без человека:
+
+| Параметр | По умолчанию | Смысл |
+| :--- | :--- | :--- |
+| окно | `4min` | считается столько последних строк журнала |
+| порог | `10` | столько `CONNECTION_NOT_INITED` в окне = обрыв; проверка идёт каждые 2 минуты, то есть рестарт на втором подряд «пике» |
+| cooldown | `900` с | не чаще одного рестарта в 15 минут |
+| прокси | `172.20.0.1:1080` | если прокси недоступен, рестарт не делается: он всё равно не поможет, ждём прокси |
+| лог | `/dev/shm/tg-healthcheck.log` | только RAM, журнал не засоряется |
+
+Юнит работает в режиме `--loop` (проверка раз в 2 минуты), вывод подавлен (`StandardOutput=null`), поэтому в journald
+не появляется ни строки.
+
+```sh
+H=172.20.5.2; B=$(printf 'http%s' '://')$H:3000
+curl -fsS -o /usr/local/bin/tg-healthcheck "$B/AlexRus1234/homelab-deploy/raw/branch/main/tools/tg-healthcheck"
+curl -fsS -o /etc/systemd/system/tg-healthcheck.service "$B/AlexRus1234/homelab-deploy/raw/branch/main/tools/tg-healthcheck.service"
+chmod 755 /usr/local/bin/tg-healthcheck
+systemctl daemon-reload
+systemctl enable --now tg-healthcheck.service
+systemctl is-active tg-healthcheck.service
+tg-healthcheck --status        # юнит, окно, порог, доступность прокси, последние записи лога
+```
+
+Настройка через переменные окружения (в юните или вручную): `TG_UNIT`, `TG_WINDOW`, `TG_THRESHOLD`, `TG_COOLDOWN`,
+`TG_PROXY`, `TG_INTERVAL`, `TG_DRY_RUN=1` (проверка без рестарта).
+
 ### Как добавить новый чат
 
 Численный ID нужен не всегда — для нового чата есть путь через ссылку:
