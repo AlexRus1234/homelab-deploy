@@ -38,7 +38,7 @@
 | Caddy | LXC (CT 100) | `172.20.6.2` | Reverse Proxy узла + layer4 `:65022` → SFTPGo (шаблон `Caddyfile.yadr01.template`) |
 | PBS | LXC (CT 101) | `172.20.6.3` | Proxmox Backup Server ([15 — PBS-сервер](../Настройка/15_PBS_сервер.md)) |
 | synapse | LXC | `172.20.6.5` | Matrix Synapse ([10 — Matrix](../Настройка/10_Matrix_мессенджер.md)) |
-| bridge-matrix | LXC | `172.20.6.6` | Matrix-мост (mautrix-telegram) |
+| bridge-matrix | LXC (CT 104) | `172.20.6.6` | Мост Matrix↔Telegram (`mautrix-telegram`, Go): appservice `:29317` ([16 — мост в Telegram](../Настройка/16_Matrix_мост_Telegram.md)) |
 | sftpgo | LXC (CT 106) | `172.20.6.8` + `172.21.6.251` (eth1, `vmbr1`) | Файловое облако ([14 — SFTPGo](../Настройка/14_SFTPGo_облако.md)) |
 | `gitrunner` | ВМ (VM 105) | `172.20.6.7` | Forgejo Runner — CI/CD (rootless Podman), см. [09 — Forgejo](../Настройка/09_Forgejo_Git_CI.md) |
 | `panelka` | ВМ | `172.20.6.9` + `172.21.6.230` (`vmbr1`) | NORA, Khrazhevnik — GitOps |

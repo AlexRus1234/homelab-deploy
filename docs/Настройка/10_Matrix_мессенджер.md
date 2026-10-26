@@ -12,6 +12,10 @@
 | Valkey (Redis) | NAS | `172.20.50.12:6379` |
 | RustFS (S3 media) | NAS (P2P-линк) | `172.21.6.249:9000` |
 | Caddy + Coturn | VPS | белый IP |
+| Мост в Telegram (`mautrix-telegram`, Go) | LXC `brige-matrix`, appservice `:29317` | `172.20.6.6` |
+
+> Мост в Telegram — отдельный документ: [16 — Matrix-мост в Telegram](16_Matrix_мост_Telegram.md).
+> Здесь описан только homeserver; мост живёт в своём LXC и общается с Synapse как appservice.
 
 ---
 
@@ -297,4 +301,5 @@ turn_allow_guests: true
 | Действие | Команда |
 | :--- | :--- |
 | Обновить Synapse | `source /opt/synapse/env/bin/activate` → `pip install --upgrade matrix-synapse psycopg2` → `systemctl restart matrix-synapse` |
+| Мост в Telegram (обновление, логи, откат) | см. [16 — Matrix-мост в Telegram](16_Matrix_мост_Telegram.md) |
 | Сброс кэша админки (CORS) | F12 → Application → Local Storage → удалить ключи → F5 |

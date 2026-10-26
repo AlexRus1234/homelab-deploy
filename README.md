@@ -42,6 +42,7 @@
 | 13 | [`13_Intermasq_менеджер_DNS.md`](docs/Настройка/13_Intermasq_менеджер_DNS.md) | Менеджер dnsmasq на SHLZ00 (исходники — репо `Intermasq`) |
 | 14 | [`14_SFTPGo_облако.md`](docs/Настройка/14_SFTPGo_облако.md) | Файловое облако поверх NAS: LXC, SSO (OIDC), SFTP |
 | 15 | [`15_PBS_сервер.md`](docs/Настройка/15_PBS_сервер.md) | PBS в LXC: datastore на SMB, GC/prune, бэкап самого PBS |
+| 16 | [`16_Matrix_мост_Telegram.md`](docs/Настройка/16_Matrix_мост_Telegram.md) | Мост Matrix↔Telegram (`mautrix-telegram`, Go): appservice, puppet-логины, база, обновление |
 
 ## Проверки контура перед пушем
 
@@ -125,6 +126,7 @@ homelab-deploy/
 │   │   ├── 13_Intermasq_менеджер_DNS.md
 │   │   ├── 14_SFTPGo_облако.md
 │   │   ├── 15_PBS_сервер.md
+│   │   ├── 16_Matrix_мост_Telegram.md
 │   │   │
 │   │   └── контейнеры/
 │   │       ├── element-web/
