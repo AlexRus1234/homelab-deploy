@@ -98,9 +98,10 @@ WantedBy=multi-user.target
 | `appservice.hostname` / `port` | `0.0.0.0` / `29317` | слушает все интерфейсы, порт только LAN |
 | `database` | `postgresql://mautrix_tg:***@172.20.50.10:5432/mautrix_tg` | **верхний уровень**; в Python-версии URI лежал вложенным в `appservice.database` |
 | `network.api_id` / `api_hash` | ключи приложения Telegram | из `my.telegram.org`, менять нельзя — привязка к логинам |
-| `network.sync.update_limit` | по умолчанию `100` (значение унаследовано из прежних `bridge.sync_*`) | сколько последних диалогов обходить при синхронизации |
+| `network.sync.update_limit` | `20` (в bridgev2 по умолчанию `100`) | сколько последних диалогов обходить при синхронизации; снижено, чтобы старт не тонул в обходе 205 диалогов |
 | `network.sync.create_limit` | по умолчанию `15` | сколько порталов создавать за один проход |
 | `network.sync.direct_chats` | `true` | личные чаты тоже становятся порталами |
+| `network.member_list.max_initial_sync` | `0` (по умолчанию `100`) | сколько участников подтягивать в портал при старте; `0` — не тянуть заранее, участники появятся по мере того, как сами напишут. Снижено вместе с `update_limit`: синхронизация участников тянет профиль и аватар на каждого, и старт на 205 порталах перестаёт успевать за потоком |
 | `backfill.max_catchup_messages` | по умолчанию 500 на портал | сколько пропущенного дотягивать после рестарта моста |
 | `network.max_member_count` | `-1` | порог размера для **супергрупп** (broadcast-каналы не проверяются); `-1` — без ограничения, см. «Порталы и приглашения» |
 | `bridge.permissions` | см. ниже | уровни прав bridgev2 |
@@ -196,10 +197,18 @@ tg-deny help
 | `tg-deny from-file <файл>` | добавить пачкой, по одному ID в строке, `#` — комментарий |
 
 Что он делает с конфигом: правит **только строки между маркерами** `# >>> tg-deny: managed` и
-`# <<< tg-deny: end` внутри `bridge.portal_create_filter.list` (при первом запуске создаёт саму секцию с
-`mode: deny`), перед правкой кладёт рядом `config.yaml.bak-<штамп>`, возвращает владельца `mautrix:mautrix`,
-перезапускает юнит и ждёт `active` до 20 секунд. Если мост не поднялся — сам возвращает бэкап и перезапускает с
-ним. Хранит 20 последних бэкапов.
+`# <<< tg-deny: end` внутри `bridge.portal_create_filter.list`, перед правкой кладёт рядом
+`config.yaml.bak-<штамп>`, возвращает владельца `mautrix:mautrix`, перезапускает юнит и ждёт `active` до 20 секунд.
+Если мост не поднялся — сам возвращает бэкап и перезапускает с ним. Хранит 20 последних бэкапов.
+
+Секция `portal_create_filter` в конфиге уже есть (её приносит миграция) — в виде `mode: deny` и **inline-пустого**
+`list: []`. Скрипт это учитывает: inline-список превращается в блочный, а если в нём уже что-то перечислено —
+элементы забираются в управляемый блок (маркеры), ничего не теряется. Отдельно он понимает `mode: allow`
+и не переключает режим сам.
+
+Если после правки YAML не парсится, скрипт печатает причину (`YAML не парсится: DuplicateKeyError …`), сохраняет
+сгенерированный вариант рядом как `config.yaml.invalid-<штамп>` и возвращает исходный конфиг — мост при этом не
+перезапускается. Такой файл и есть материал для разбора: `diff` с рабочим конфигом показывает, что именно не так.
 
 Порядок для одного чата (важен именно такой):
 
@@ -301,6 +310,53 @@ systemctl restart mautrix-telegram
 порядок строгий: сгенерировать → скопировать в CT 103 → `systemctl restart matrix-synapse` → запустить мост.
 Иначе Synapse отвергает запросы моста (403), а мост не получает транзакции.
 
+## 403 при публикации в комнату (комнаты Python-эпохи)
+
+Симптом в журнале:
+
+```
+ERR Failed to send message part to Matrix error="M_FORBIDDEN (HTTP 403): You don't have permission to post
+    that to the room. user_level (0) < send_level (50)" portal_id=channel:2479181954 portal_mxid=!…
+    sender=channel-2479181954 remote_message_id=…
+```
+
+Причина: комнаты, созданные прежней (Python) версией моста, выдали 100 только `@telegrambot`, а ghost канала
+`@telegram_channel-<id>` в `m.room.power_levels` отсутствует — у него `user_level` 0 при требуемых 50. Комнаты,
+созданные текущей версией, ghost'а в правах содержат и не болеют.
+
+Последствие двойное: сообщение в Matrix не попадает **и** обработка этого события зависает, задерживая всю очередь
+(см. «Логи и наблюдаемость»). Поэтому «в комнате идёт переписка» и «в логе 403» спокойно сосуществуют — часть
+событий проходит, часть клинит.
+
+По каждому такому чату:
+
+| Чат | Что делать |
+| :--- | :--- |
+| нужен в Matrix | в комнате `!tg unbridge`, дальше следующее сообщение канала создаёт комнату с правильными правами. История комнаты в Matrix теряется, в Telegram остаётся |
+| нужен только в Telegram | в комнате `!tg unbridge`, затем `tg-deny add <id>` — иначе комната создастся заново |
+| нужен, история важна | править `power_levels` под `@telegrambot` (у него 100 в этих комнатах): токен выдаёт admin API `POST /_synapse/admin/v1/users/<mxid>/login`, затем `PUT …/state/m.room.power_levels` с добавлением ghost'а на 100. Своим токеном это не сделать — у него в этих комнатах 0, а вход по паролю отключён |
+
+Проверить одну комнату (SKLD00):
+
+```sh
+set +H
+sudo -u postgres psql -d synapse -Atc "select ej.json::jsonb->'content'->'users' from current_state_events cse join event_json ej on ej.event_id=cse.event_id where cse.type='m.room.power_levels' and cse.room_id='!…:matrix.alexrus1234.ru'"
+```
+
+Полный обход — сверка списка порталов с правами комнат (печатает ID каналов, у которых ghost'а в правах нет):
+
+```sh
+set +H; sudo -v
+sudo -u postgres psql -d mautrix_tg -Atc "select id, mxid from portal where id like 'channel:%' and coalesce(mxid,'')<>''" > /root/portals.tsv
+: > /root/broken.txt
+while IFS='|' read -r pid mxid; do
+    ghost="@telegram_${pid/channel:/channel-}:matrix.alexrus1234.ru"
+    has=$(sudo -u postgres psql -d synapse -Atc "select coalesce((ej.json::jsonb->'content'->'users') ? '$ghost', false) from current_state_events cse join event_json ej on ej.event_id=cse.event_id where cse.type='m.room.power_levels' and cse.room_id='$mxid'" | tr -d '\r')
+    [ "$has" = "t" ] || echo "$pid" >> /root/broken.txt
+done < /root/portals.tsv
+echo "комнат без ghost'а: $(wc -l < /root/broken.txt)"
+```
+
 ## Логи и наблюдаемость
 
 ```sh
@@ -312,11 +368,42 @@ journalctl -f -u mautrix-telegram               # живой поток
 
 Признаки нормальной работы в логе: `Sent message part to Matrix … event_id=…` (сообщение ушло в Matrix),
 ответ `200` на `/_matrix/app/v1/transactions/…` (Synapse доставил событие), `handle matrix event` без ошибок
-(сообщение ушло в Telegram).
+(сообщение ушло в Telegram). `Run: end … dc_id=N` + `Generating new auth key` — переподключение к медиа-датацентру
+Telegram, норма.
 
-`WRN Telegram update handling is taking long … started_at=<время>` — большая пачка апдейтов ещё обрабатывается;
-это не ошибка, а индикатор, что первичный обход/догон не закончен. `Run: end … dc_id=N` + `Generating new auth key`
-— переподключение к медиа-датацентру Telegram, норма.
+`WRN Telegram update handling is taking long … started_at=<время>` — пачка апдейтов ещё обрабатывается. Сама по себе
+строка безобидна, если `started_at` в ней **меняется** (каждая запись — новая пачка) и рядом идут `Sent message part`.
+
+Клин отличается так:
+
+- `started_at` в `taking long` **не меняется** десятки минут — обработка стоит на одном и том же месте;
+- `Sent message part` за это время не появляется ни одного, входящие из Telegram не доходят до Matrix;
+- бот сам присылает в Matrix: `State update for <user>: UNKNOWN_ERROR (tg-update-handler-stuck): Processing messages from
+  Telegram is stuck` — это watchdog моста, он видит, что не успевает обрабатывать апдейты.
+
+Застрявшее событие видно отдельной строкой — по ней и надо идти:
+
+```
+WRN Event handling is taking long action="handle remote event" bridge_evt_type=RemoteEventMessage
+    portal_id=channel:… portal_mxid=!… sender=channel-… started_at=…
+```
+
+Чаще всего это публикация в комнату, куда мост не имеет прав (403, см. «403 при публикации в комнату»): событие
+не может завершиться и держит очередь. Порядок действий — убрать такие комнаты из-под моста (`!tg unbridge` +
+`tg-deny add`), затем `systemctl restart mautrix-telegram`.
+
+```sh
+journalctl -u mautrix-telegram | grep 'taking long' | tail -2          # меняется ли started_at
+journalctl -u mautrix-telegram --since '-5 min' | grep -c 'Sent message part'
+journalctl -u mautrix-telegram --since '-5 min' | grep -cE 'M_FORBIDDEN|taking long'
+```
+
+Если клин повторяется на пустом месте (403 нет, а `started_at` замер) — снять стек процесса и разбирать его:
+
+```sh
+kill -QUIT "$(systemctl show -p MainPID --value mautrix-telegram)"
+journalctl -u mautrix-telegram --since '-1 min' --no-pager | head -120
+```
 
 ## Обновление версии
 
@@ -364,6 +451,8 @@ systemctl start mautrix-telegram
 | сообщения не идут в Telegram | `handle matrix event` + ошибки MTProto рядом; при `AuthKeyUnregistered` нужен повторный логин через `!tg login` |
 | мост не поднимается | `Failed to parse config: …` — конфиг невалиден (см. «Грабли»), `journalctl` показывает строку ошибки целиком |
 | лавина уведомлений после рестарта | это `backfill.max_catchup_messages` дотягивает пропущенное. Петля отличается тем, что в логе повторяются **одни и те же** `msgid` без строки `Ignoring duplicate message` |
+| уведомления идут, а часть комнат молчит | `M_FORBIDDEN … user_level (0) < send_level (50)` — комнаты Python-эпохи без ghost'а в правах, см. «403 при публикации в комнату» |
+| входящие из Telegram не доходят, `taking long` с одним и тем же `started_at` | клин очереди; искать `Event handling is taking long … portal_id=…` и убирать эту комнату из-под моста, см. «Логи и наблюдаемость» |
 | порталов стало больше/меньше | `select peer_type, megagroup, count(*) from portal group by 1,2` в базе `mautrix_tg` |
 
 Команды в чате: `!tg help` печатает актуальный список (он зависит от версии бинаря). Из рабочих:
@@ -385,7 +474,15 @@ systemctl start mautrix-telegram
 - **Перерегистрация без рестарта Synapse** даёт 403 на транзакциях: мост и Synapse должны видеть одни токены
   одновременно.
 - **Первый запуск после крупного обновления/рестарта — это догон, а не сбой**: волна уведомлений приходит
-  из уже существующих комнат, ограничена `backfill.max_catchup_messages` и затухает сама.
+  из уже существующих комнат, ограничена `backfill.max_catchup_messages` и затухает сама. Отличие от клина —
+  `started_at` в `taking long` меняется, а `Sent message part` идёт.
+- **`taking long` — не всегда безобидно.** Если `started_at` замер, `Sent message part` нет, а бот пишет
+  `UNKNOWN_ERROR (tg-update-handler-stuck)`, это остановка очереди; лечится не рестартом (он повторяется через
+  полминуты), а устранением комнат, куда мост не может писать.
+- **Комнаты, созданные Python-версией, содержат в правах только `@telegrambot`.** В них мост не может постить от
+  имени канала — отсюда 403 и зависания. Признак: сообщения в комнате идут, но часть публикаций в лог падает.
+- **`list: []` в конфиге — валидный YAML**, но именно на нём спотыкались скрипты, ищущие строку `list:`.
+  `tg-deny` такой список понимает и переводит в блочный вид.
 - **Файловые логи не нужны**: stdout уходит в journald, ротацией занимается systemd; файловый writer только
   растит диск контейнера (8 ГБ rootfs).
 
