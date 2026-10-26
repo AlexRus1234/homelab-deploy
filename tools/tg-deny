@@ -224,16 +224,34 @@ else:
     if mode_changed:
         lines[mode_idx] = inner + 'mode: deny'
 
-# list: must exist
+# list: must exist (может быть записан и как пустой inline-список `list: []`)
+inline_items = []
 list_idx = None
 for i in range(pcf_idx + 1, section_end):
-    if lines[i].strip() == 'list:':
+    s = lines[i].strip()
+    if s == 'list:' or s.startswith('list: '):
         list_idx = i
         break
 if list_idx is None:
     lines.insert(pcf_idx + 2, inner + 'list:')
     section_end += 1
     list_idx = pcf_idx + 2
+else:
+    raw = lines[list_idx].split(':', 1)[1].strip()
+    if raw:
+        if '{' in raw:
+            sys.stderr.write(
+                'ошибка: в конфиге inline-список объектов (%s); '
+                'разверните его в блочный вид вручную и повторите\n' % raw)
+            sys.exit(3)
+        body = raw
+        if body.startswith('[') and body.endswith(']'):
+            body = body[1:-1]
+        for part in body.split(','):
+            v = part.strip().strip('"\'')
+            if v:
+                inline_items.append(v)
+        lines[list_idx] = inner + 'list:'
 
 # --- read current managed ids ----------------------------------------------
 beg_idx = end_idx = None
@@ -246,7 +264,7 @@ for i in range(list_idx + 1, len(lines)):
         end_idx = i
         break
 
-current = []
+current = list(inline_items)
 adopt_idx = []
 if beg_idx is not None and end_idx is not None:
     for ln in lines[beg_idx + 1:end_idx]:
