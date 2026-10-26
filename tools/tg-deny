@@ -1,0 +1,454 @@
+#!/usr/bin/env bash
+# tg-deny — управление списком чатов, для которых mautrix-telegram (bridgev2) не создаёт порталы.
+#
+# Что делает: держит блок в bridge.portal_create_filter (mode: deny) в config.yaml моста,
+# между маркерами «# >>> tg-deny: managed» и «# <<< tg-deny: end». Всё остальное в конфиге не трогает.
+#
+# Почему deny, а не allow: по умолчанию создаётся всё (новые чаты приходят сами), в списке —
+# только то, что запрещено. Это и есть «новое приходит, ненужное баним точечно».
+#
+# ВАЖНО: фильтр проверяется только при СОЗДАНИИ комнаты. Если комната у чата уже есть,
+# сначала надо выполнить в ней в Matrix: `!tg unbridge` (мост удалит комнату и очистит mxid),
+# иначе приглашения продолжат приходить по существующему порталу.
+
+set -euo pipefail
+
+CONFIG="${TG_CONFIG:-/opt/mautrix-telegram/config.yaml}"
+UNIT="${TG_UNIT:-mautrix-telegram}"
+OWNER="${TG_OWNER:-mautrix:mautrix}"
+SYSTEMCTL="${TG_SYSTEMCTL:-systemctl}"
+CHOWN="${TG_CHOWN:-chown}"
+PY="${TG_PY:-/opt/mautrix-telegram/env/bin/python}"
+[ -x "$PY" ] || PY="python3"
+WAIT_SECONDS="${TG_WAIT:-20}"
+
+readonly TITLE="tg-deny — запрет автосоздания порталов в mautrix-telegram"
+
+usage() {
+	cat <<'EOF'
+ИСПОЛЬЗОВАНИЕ
+  tg-deny help                     эта справка
+  tg-deny list                     показать запрещённые чаты
+  tg-deny add <id> [<id> …]        запретить создание портала для чата
+  tg-deny del <id> [<id> …]        снять запрет
+  tg-deny check <id>               проверить, запрещён ли чат (код 0 — да)
+  tg-deny from-file <файл>         добавить пачкой, по одному ID в строке (# — комментарий)
+
+ФОРМАТ ID
+  channel:-1001234567890   канал или супергруппа
+  user:123456789           личный чат
+  Значение выдаёт команда «!tg id» в связанной комнате Matrix.
+  Для приватной супергруппы ID собирается из ссылки на сообщение:
+  t.me/c/2691256007/123  →  channel:-1002691256007
+
+ПОРЯДОК ДЕЙСТВИЙ (важно)
+  1) в Matrix, в комнате ненужного чата:   !tg id          — запомнить ID
+  2) там же:                               !tg unbridge    — мост удалит комнату и очистит mxid
+  3) в шелле:                              tg-deny add <ID>
+
+  Без шага 2 фильтр не поможет: он действует только при СОЗДАНИИ комнаты, а приглашение
+  по уже существующему порталу приходит и при пустом списке.
+
+ВОЗВРАТ ЧАТА
+  tg-deny del <ID>
+  затем либо дождаться сообщения в чате (комната создастся сама), либо в Matrix:
+  «!tg create-portal <ID>».
+
+ЧТО МЕНЯЕТСЯ НА ДИСКЕ
+  • config.yaml — только строки между маркерами «# >>> tg-deny: managed» и «# <<< tg-deny: end»
+    плюс, при первом запуске, секция bridge.portal_create_filter (mode: deny);
+  • перед каждой правкой делается резервная копия config.yaml.bak-<штамп>;
+  • владелец конфига возвращается в mautrix:mautrix, мост перезапускается.
+
+БЕЗОПАСНОСТЬ
+  • перед рестартом конфиг парсится как YAML (ruamel из venv моста, иначе PyYAML, иначе пропуск);
+  • если мост не поднялся за TG_WAIT (по умолчанию 20 с) — резервная копия возвращается
+    на место, мост перезапускается с ней, скрипт возвращает ошибку и печатает хвост журнала.
+
+ОКРУЖЕНИЕ (для переноса и тестов)
+  TG_CONFIG=… TG_UNIT=… TG_OWNER=… TG_SYSTEMCTL=… TG_CHOWN=… TG_PY=… TG_WAIT=…
+EOF
+}
+
+die() { printf 'ошибка: %s\n' "$*" >&2; exit 1; }
+say() { printf '%s\n' "$*"; }
+
+require_root() {
+	[ "${TG_ALLOW_NONROOT:-0}" = "1" ] && return 0
+	[ "$(id -u)" -eq 0 ] || die "нужен root (правка $CONFIG, chown, рестарт $UNIT). Для тестов: TG_ALLOW_NONROOT=1"
+}
+
+valid_id() { [[ "$1" =~ ^[a-z]+:[^[:space:]]+$ ]]; }
+
+cmd_list() {
+	[ -f "$CONFIG" ] || die "конфиг не найден: $CONFIG"
+	"$PY" - "$CONFIG" list <<'PYEOF'
+import sys
+path = sys.argv[1]
+BEG = '# >>> tg-deny: managed'
+END = '# <<< tg-deny: end'
+lines = open(path, encoding='utf-8').read().splitlines()
+inside = False
+found = 0
+mode = None
+for ln in lines:
+    s = ln.strip()
+    if s == 'portal_create_filter:':
+        mode = 'pending'
+    elif mode == 'pending' and s.startswith('mode:'):
+        mode = s.split(':', 1)[1].strip()
+    if s.startswith(BEG):
+        inside = True
+        continue
+    if s.startswith(END):
+        inside = False
+        continue
+    if inside:
+        item = s.lstrip('- ').strip()
+        if item:
+            print(item)
+            found += 1
+if found == 0:
+    print('(список пуст — создаются порталы для всех чатов)')
+sys.stderr.write('режим фильтра: %s\n' % (mode if mode not in (None, 'pending') else 'не задан'))
+PYEOF
+}
+
+cmd_check() {
+	[ $# -ge 1 ] || die "нужен ID"
+	local want="$1" hit=0
+	while IFS= read -r line; do
+		[ "$line" = "$want" ] && hit=1
+	done < <(cmd_list 2>/dev/null)
+	if [ "$hit" -eq 1 ]; then say "запрещён: $want"; else say "не запрещён: $want"; fi
+	[ "$hit" -eq 1 ]
+}
+
+# Переписать блок. Аргументы: действие (add|del|replace) и ID.
+rewrite() {
+	local action="$1"; shift
+	local ids=("$@")
+	"$PY" - "$CONFIG" "$action" "${ids[@]}" <<'PYEOF'
+import sys, re
+
+path, action = sys.argv[1], sys.argv[2]
+new_ids = sys.argv[3:]
+
+BEG = '# >>> tg-deny: managed'
+END = '# <<< tg-deny: end'
+
+def indent_of(s):
+    return len(s) - len(s.lstrip(' '))
+
+try:
+    raw = open(path, encoding='utf-8').read()
+except FileNotFoundError:
+    sys.exit('файл не найден: %s' % path)
+lines = raw.splitlines()
+
+# --- locate top-level `bridge:` section -------------------------------------
+bridge_idx = None
+for i, ln in enumerate(lines):
+    if ln.rstrip() == 'bridge:':
+        bridge_idx = i
+        break
+if bridge_idx is None:
+    sys.exit('в конфиге нет секции bridge: — проверьте TG_CONFIG')
+
+child_indent = 4
+for ln in lines[bridge_idx + 1:]:
+    if not ln.strip() or ln.strip().startswith('#'):
+        continue
+    child_indent = indent_of(ln)
+    break
+
+section_end = len(lines)
+for i in range(bridge_idx + 1, len(lines)):
+    ln = lines[i]
+    if not ln.strip() or ln.strip().startswith('#'):
+        continue
+    if indent_of(ln) <= indent_of(lines[bridge_idx]):
+        section_end = i
+        break
+
+sp = ' ' * child_indent
+pcf_line = sp + 'portal_create_filter:'
+mode_line = sp + '    mode: deny'
+list_line = sp + '    list:'
+item_indent = sp + '        '
+beg_line = item_indent + BEG
+end_line = item_indent + END
+
+# --- find or create portal_create_filter ------------------------------------
+pcf_idx = None
+for i in range(bridge_idx + 1, section_end):
+    if lines[i].strip() == 'portal_create_filter:':
+        pcf_idx = i
+        break
+
+if pcf_idx is None:
+    block = [pcf_line, mode_line, list_line, beg_line, end_line]
+    lines[section_end:section_end] = block
+    pcf_idx = section_end
+    created = True
+else:
+    created = False
+
+# --- recompute section bounds after possible insert ------------------------
+section_end = len(lines)
+for i in range(pcf_idx + 1, len(lines)):
+    ln = lines[i]
+    if not ln.strip() or ln.strip().startswith('#'):
+        continue
+    if indent_of(ln) <= indent_of(lines[pcf_idx]):
+        section_end = i
+        break
+
+pcf_indent = indent_of(lines[pcf_idx])
+inner = ' ' * (pcf_indent + 4)
+
+# mode: must be deny
+mode_idx = None
+for i in range(pcf_idx + 1, section_end):
+    if lines[i].strip().startswith('mode:'):
+        mode_idx = i
+        break
+if mode_idx is None:
+    lines.insert(pcf_idx + 1, inner + 'mode: deny')
+    section_end += 1
+    mode_idx = pcf_idx + 1
+    mode_changed = True
+else:
+    cur = lines[mode_idx].split(':', 1)[1].strip()
+    mode_changed = cur != 'deny'
+    if mode_changed:
+        lines[mode_idx] = inner + 'mode: deny'
+
+# list: must exist
+list_idx = None
+for i in range(pcf_idx + 1, section_end):
+    if lines[i].strip() == 'list:':
+        list_idx = i
+        break
+if list_idx is None:
+    lines.insert(pcf_idx + 2, inner + 'list:')
+    section_end += 1
+    list_idx = pcf_idx + 2
+
+# --- read current managed ids ----------------------------------------------
+beg_idx = end_idx = None
+item_sp = ' ' * (indent_of(lines[list_idx]) + 4)
+for i in range(list_idx + 1, len(lines)):
+    s = lines[i].strip()
+    if s.startswith(BEG.strip()):
+        beg_idx = i
+    elif s.startswith(END.strip()):
+        end_idx = i
+        break
+
+current = []
+adopt_idx = []
+if beg_idx is not None and end_idx is not None:
+    for ln in lines[beg_idx + 1:end_idx]:
+        v = ln.strip().lstrip('- ').strip()
+        if v:
+            current.append(v)
+else:
+    # маркеров ещё нет — забираем уже перечисленные элементы списка в управляемый блок
+    list_indent = indent_of(lines[list_idx])
+    j = list_idx + 1
+    while j < len(lines):
+        ln = lines[j]
+        if ln.strip() and indent_of(ln) <= list_indent:
+            break
+        s = ln.strip()
+        if s.startswith('- '):
+            v = s[2:].strip()
+            if v:
+                current.append(v)
+                adopt_idx.append(j)
+        j += 1
+before = sorted(dict.fromkeys(current))
+
+# --- apply action -----------------------------------------------------------
+if action == 'add':
+    for v in new_ids:
+        if v not in current:
+            current.append(v)
+elif action == 'del':
+    current = [v for v in current if v not in new_ids]
+elif action == 'replace':
+    current = list(dict.fromkeys(new_ids))
+else:
+    sys.exit('неизвестное действие: %s' % action)
+
+current = sorted(dict.fromkeys(current))
+changed = created or mode_changed or (before != current)
+
+new_block = [item_sp + BEG] + [(item_sp + '- ' + v) for v in current] + [item_sp + END]
+
+if beg_idx is not None and end_idx is not None:
+    lines[beg_idx:end_idx + 1] = new_block
+else:
+    for k in reversed(adopt_idx):
+        del lines[k]
+    lines[list_idx + 1:list_idx + 1] = new_block
+
+if not changed:
+    print('без изменений: %d в списке' % len(current))
+    sys.exit(10)
+
+open(path, 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
+print('в списке: %d' % len(current))
+if created:
+    print('создана секция bridge.portal_create_filter (mode: deny)')
+elif mode_changed:
+    print('mode переключён на deny')
+PYEOF
+}
+
+validate_yaml() {
+	local file="$1" rc=0
+	"$PY" - "$file" <<'PYEOF' || rc=$?
+import sys
+try:
+    import ruamel.yaml as ry
+    with open(sys.argv[1], encoding='utf-8') as f:
+        ry.YAML(typ='safe').load(f)
+except ImportError:
+    try:
+        import yaml
+    except ImportError:
+        sys.exit(2)
+    with open(sys.argv[1], encoding='utf-8') as f:
+        yaml.safe_load(f)
+except Exception:
+    sys.exit(1)
+PYEOF
+	case "$rc" in
+		0) return 0 ;;
+		2) say "предупреждение: нет YAML-парсера в $PY — проверка синтаксиса пропущена"; return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+restart_unit() {
+	local backup="$1"
+	"$SYSTEMCTL" restart "$UNIT" || true
+	local waited=0
+	while [ "$waited" -lt "$WAIT_SECONDS" ]; do
+		if "$SYSTEMCTL" is-active --quiet "$UNIT"; then
+			say "мост перезапущен и активен (${waited}s)"
+			return 0
+		fi
+		sleep 1
+		waited=$((waited + 1))
+	done
+	say "МОСТ НЕ ПОДНЯЛСЯ за ${WAIT_SECONDS}s — откатываю конфиг"
+	cp -a "$backup" "$CONFIG"
+	"$CHOWN" "$OWNER" "$CONFIG" || true
+	"$SYSTEMCTL" restart "$UNIT" || true
+	sleep 3
+	if "$SYSTEMCTL" is-active --quiet "$UNIT"; then
+		say "откат выполнен, мост активен; бэкап оставлен: $backup"
+	else
+		say "откат выполнен, но мост всё ещё не активен — смотрите: journalctl -u $UNIT -n 50"
+	fi
+	exit 1
+}
+
+# ---------------------------------------------------------------- apply + restart
+apply_change() {
+	local action="$1"; shift
+	[ -f "$CONFIG" ] || die "конфиг не найден: $CONFIG"
+	local stamp backup snap rc=0
+	stamp="$(date +%Y%m%d-%H%M%S)-$$"
+	backup="$CONFIG.bak-$stamp"
+	snap="$(mktemp)"
+	cp -a "$CONFIG" "$snap"
+
+	set +e
+	rewrite "$action" "$@" >/tmp/tg-deny.out 2>/tmp/tg-deny.err
+	rc=$?
+	set -e
+	cat /tmp/tg-deny.out
+	cat /tmp/tg-deny.err >&2
+
+	if [ "$rc" -eq 10 ]; then
+		rm -f "$snap" /tmp/tg-deny.out /tmp/tg-deny.err
+		return 0
+	elif [ "$rc" -ne 0 ]; then
+		rm -f "$snap" /tmp/tg-deny.out /tmp/tg-deny.err
+		die "не удалось переписать конфиг (код $rc); файл не изменён"
+	fi
+	rm -f /tmp/tg-deny.out /tmp/tg-deny.err
+
+	cp -a "$CONFIG" "$backup"
+
+	if ! validate_yaml "$CONFIG"; then
+		cp -a "$snap" "$CONFIG"
+		rm -f "$snap"
+		die "получился невалидный YAML — конфиг возвращён как был, мост не перезапускался"
+	fi
+	rm -f "$snap"
+
+	"$CHOWN" "$OWNER" "$CONFIG" || say "предупреждение: не удалось выставить владельца $OWNER"
+	restart_unit "$backup"
+	say "бэкап: $backup"
+	prune_backups
+}
+
+# Оставляем 20 последних резервных копий, остальные удаляем.
+prune_backups() {
+	local keep="${TG_KEEP_BACKUPS:-20}"
+	local dir base
+	dir="$(dirname "$CONFIG")"
+	base="$(basename "$CONFIG")"
+	# shellcheck disable=SC2012
+	ls -1t "$dir/$base".bak-* 2>/dev/null | tail -n +$((keep + 1)) | while IFS= read -r old; do
+		rm -f "$old"
+	done
+}
+
+cmd_from_file() {
+	local file="${1:-}"
+	[ -n "$file" ] || die "укажите файл: tg-deny from-file <файл>"
+	[ -r "$file" ] || die "файл не читается: $file"
+	local ids=() line
+	while IFS= read -r line; do
+		line="${line%%#*}"
+		line="$(echo "$line" | tr -d '[:space:]')"
+		[ -z "$line" ] && continue
+		valid_id "$line" || die "неверный ID в файле: $line"
+		ids+=("$line")
+	done <"$file"
+	[ "${#ids[@]}" -gt 0 ] || die "в файле нет ни одного ID"
+	say "добавляю ${#ids[@]} шт."
+	apply_change add "${ids[@]}"
+}
+
+main() {
+	local cmd="${1:-help}"
+	shift || true
+	case "$cmd" in
+		-h|--help|help|"") usage ;;
+		list) require_root; cmd_list ;;
+		check) require_root; cmd_check "$@" ;;
+		add)
+			require_root
+			[ $# -ge 1 ] || { usage; exit 2; }
+			for id in "$@"; do valid_id "$id" || die "неверный ID: $id (ожидается вид channel:-100… или user:…)"; done
+			apply_change add "$@"
+			;;
+		del|delete|remove)
+			require_root
+			[ $# -ge 1 ] || { usage; exit 2; }
+			for id in "$@"; do valid_id "$id" || die "неверный ID: $id"; done
+			apply_change del "$@"
+			;;
+		from-file) require_root; cmd_from_file "$@" ;;
+		*) say "неизвестная команда: $cmd"; say; usage; exit 2 ;;
+	esac
+}
+
+main "$@"

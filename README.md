@@ -150,7 +150,7 @@ homelab-deploy/
 │       ├── hooks.json.template
 │       └── webhook.service.template
 │
-└── servers/
+├── servers/
     ├── yadr00/
     │   └── obshaga/
     │       ├── sync-state.sh
@@ -208,4 +208,7 @@ homelab-deploy/
             ├── README.md          # формат деклараций инстансов
             ├── victorialogs1.yaml           # VictoriaLogs  (:9428)
             └── victoriametrics1.yaml           # VictoriaMetrics (:8428)
+│
+└── tools/
+    └── tg-deny                            # список запретов моста: add/del/list (гайд 16)
 ```
