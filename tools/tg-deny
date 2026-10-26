@@ -309,7 +309,7 @@ PYEOF
 
 validate_yaml() {
 	local file="$1" rc=0
-	"$PY" - "$file" <<'PYEOF' || rc=$?
+	VALIDATE_ERR="$("$PY" - "$file" 2>&1 <<'PYEOF'
 import sys
 try:
     import ruamel.yaml as ry
@@ -322,13 +322,18 @@ except ImportError:
         sys.exit(2)
     with open(sys.argv[1], encoding='utf-8') as f:
         yaml.safe_load(f)
-except Exception:
+except Exception as e:
+    sys.stderr.write('%s: %s\n' % (type(e).__name__, e))
     sys.exit(1)
 PYEOF
+)" || rc=$?
 	case "$rc" in
 		0) return 0 ;;
 		2) say "предупреждение: нет YAML-парсера в $PY — проверка синтаксиса пропущена"; return 0 ;;
-		*) return 1 ;;
+		*)
+			say "YAML не парсится: $VALIDATE_ERR"
+			return 1
+			;;
 	esac
 }
 
@@ -386,9 +391,11 @@ apply_change() {
 	cp -a "$CONFIG" "$backup"
 
 	if ! validate_yaml "$CONFIG"; then
+		local kept="$CONFIG.invalid-$stamp"
+		cp -a "$CONFIG" "$kept" 2>/dev/null || cp "$CONFIG" "$kept"
 		cp -a "$snap" "$CONFIG"
 		rm -f "$snap"
-		die "получился невалидный YAML — конфиг возвращён как был, мост не перезапускался"
+		die "конфиг возвращён как был, мост не перезапускался; сгенерированный вариант сохранён: $kept"
 	fi
 	rm -f "$snap"
 
