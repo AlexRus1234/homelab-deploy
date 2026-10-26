@@ -300,6 +300,15 @@ turn_allow_guests: true
 
 | Действие | Команда |
 | :--- | :--- |
-| Обновить Synapse | `source /opt/synapse/env/bin/activate` → `pip install --upgrade matrix-synapse psycopg2` → `systemctl restart matrix-synapse` |
+| Обновить Synapse | `systemctl stop matrix-synapse` → `/opt/synapse/env/bin/pip install --upgrade "matrix-synapse[all]"` → `/opt/synapse/env/bin/pip check` → `chown -R synapse:synapse /opt/synapse/env` → `systemctl start matrix-synapse` |
 | Мост в Telegram (обновление, логи, откат) | см. [16 — Matrix-мост в Telegram](16_Matrix_мост_Telegram.md) |
 | Сброс кэша админки (CORS) | F12 → Application → Local Storage → удалить ключи → F5 |
+
+> **`pip` запускать от root, не от `synapse`.** Venv `/opt/synapse/env` собран root'ом, и установка от пользователя
+> `synapse` падает с `Permission denied: /opt/synapse/env/lib/python3.13/site-packages/…` — при этом сервис уже
+> остановлен. Порядок выше: установка от root, затем `chown -R synapse:synapse /opt/synapse/env`, иначе в venv
+> останутся файлы, принадлежащие root. `psycopg2` отдельно обновлять не нужно: он приходит как зависимость
+> `matrix-synapse[all]` и уже собран под `libpq-dev` этого контейнера.
+>
+> Перед остановкой сервиса полезно снять снапшот гостя (`pct snapshot 103 <имя>` — только буквы и цифры) и дамп базы
+> `synapse` на NAS: миграции схемы идут на старте и назад не откатываются.
