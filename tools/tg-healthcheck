@@ -1,25 +1,33 @@
 #!/usr/bin/env bash
-# tg-healthcheck — перезапуск моста, который потерял соединение с Telegram.
+# tg-healthcheck — перезапуск моста, который перестал синхронизировать.
 #
-# Мост после кратковременного падения прокси остаётся с неинициализированным
-# соединением: в журнале идёт поток "rpc error code 400: CONNECTION_NOT_INITED",
-# сам он не переподключается, а процесс жив, поэтому systemd его не трогает.
-# Скрипт считает такие ошибки в скользящем окне и перезапускает юнит.
+# У моста два известных способа «умереть, оставаясь живым» (systemd видит active,
+# Restart=always не срабатывает):
 #
+#   1) соединение с Telegram потеряно: в журнале поток
+#      "rpc error code 400: CONNECTION_NOT_INITED" / "engine was closed",
+#      клиент не переподключается сам (отвалился прокси 172.20.0.1:1080);
+#   2) обработчик апдейтов завис: строка
+#      "WRN Telegram update handling is taking long ... started_at=<время>"
+#      повторяется с ОДНИМ И ТЕМ ЖЕ старым started_at десятки минут.
+#
+# Скрипт проверяет оба признака и перезапускает юнит.
 # Логи пишутся только в /dev/shm (RAM), журнал не засоряется.
 # Юнит запускает его с --loop (проверка раз в TG_INTERVAL секунд).
 
 set -uo pipefail
 
 UNIT="${TG_UNIT:-mautrix-telegram}"
-WINDOW="${TG_WINDOW:-4min}"          # окно подсчёта: два цикла по 2 минуты
-THRESHOLD="${TG_THRESHOLD:-10}"      # столько ошибок в окне = обрыв
-COOLDOWN="${TG_COOLDOWN:-900}"       # не чаще одного рестарта в 15 минут
-PROXY="${TG_PROXY:-172.20.0.1:1080}" # прокси моста: если он лежит, рестарт не поможет
-INTERVAL="${TG_INTERVAL:-120}"       # период проверки в режиме --loop
+WINDOW="${TG_WINDOW:-4min}"           # окно подсчёта ошибок
+THRESHOLD="${TG_THRESHOLD:-10}"       # столько ошибок в окне = обрыв
+STUCK_AFTER="${TG_STUCK_AFTER:-600}"  # started_at старше N секунд = зависание
+COOLDOWN="${TG_COOLDOWN:-900}"        # не чаще одного рестарта в 15 минут
+PROXY="${TG_PROXY:-172.20.0.1:1080}"  # прокси моста: если лежит, рестарт не поможет
+INTERVAL="${TG_INTERVAL:-120}"        # период проверки в режиме --loop
 DRY_RUN="${TG_DRY_RUN:-0}"
 
-MARKER="CONNECTION_NOT_INITED"
+ERR_RE="CONNECTION_NOT_INITED|engine was closed"
+STUCK_RE="Telegram update handling is taking long"
 STATE="/dev/shm/tg-healthcheck.state"
 LOG="/dev/shm/tg-healthcheck.log"
 
@@ -27,9 +35,24 @@ log() {
 	printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*" >>"$LOG"
 }
 
+jc() {
+	journalctl -u "$UNIT" --since "-$1" --no-pager -o cat 2>/dev/null
+}
+
 count_errors() {
-	journalctl -u "$UNIT" --since "-$WINDOW" --no-pager -o cat 2>/dev/null |
-		grep -c -- "$MARKER" 2>/dev/null || true
+	jc "$WINDOW" | grep -cE -- "$ERR_RE" 2>/dev/null || true
+}
+
+# Возраст самого свежего "taking long" в секундах. Пусто, если строки нет.
+stuck_age() {
+	local line ts epoch now
+	line="$(jc "$WINDOW" | grep -- "$STUCK_RE" | tail -1)"
+	[ -z "$line" ] && return 0
+	ts="$(printf '%s' "$line" | sed -n 's/.*started_at=\([^ ]*\).*/\1/p')"
+	[ -z "$ts" ] && return 0
+	epoch="$(date -d "$ts" +%s 2>/dev/null)" || return 0
+	now="$(date +%s)"
+	printf '%s' "$((now - epoch))"
 }
 
 proxy_up() {
@@ -37,13 +60,8 @@ proxy_up() {
 	timeout 3 bash -c "cat < /dev/null > /dev/tcp/$host/$port" 2>/dev/null
 }
 
-check() {
-	local cnt now last
-	cnt="$(count_errors)"
-	cnt="${cnt:-0}"
-	if [ "$cnt" -lt "$THRESHOLD" ]; then
-		return 0
-	fi
+restart_unit() {
+	local reason="$1" now last
 	now="$(date +%s)"
 	if [ -f "$STATE" ]; then
 		last="$(cat "$STATE" 2>/dev/null || echo 0)"
@@ -52,20 +70,34 @@ check() {
 		fi
 	fi
 	if ! proxy_up; then
-		log "ошибок $cnt за $WINDOW, но прокси $PROXY недоступен — рестарт не делаю"
+		log "$reason, но прокси $PROXY недоступен — рестарт не делаю"
 		printf '%s' "$now" >"$STATE"
 		return 0
 	fi
 	if [ "$DRY_RUN" = "1" ]; then
-		log "DRY-RUN: ошибок $cnt за $WINDOW, прокси $PROXY доступен — перезапустил бы $UNIT"
+		log "DRY-RUN: $reason — перезапустил бы $UNIT"
+	elif systemctl restart "$UNIT"; then
+		log "$reason — $UNIT перезапущен"
 	else
-		if systemctl restart "$UNIT"; then
-			log "ошибок $cnt за $WINDOW, прокси $PROXY доступен — $UNIT перезапущен"
-		else
-			log "ошибок $cnt за $WINDOW — не удалось перезапустить $UNIT"
-		fi
+		log "$reason — не удалось перезапустить $UNIT"
 	fi
 	printf '%s' "$now" >"$STATE"
+}
+
+check() {
+	local cnt age
+	cnt="$(count_errors)"
+	cnt="${cnt:-0}"
+	age="$(stuck_age)"
+	if [ -n "$age" ] && [ "$age" -ge "$STUCK_AFTER" ]; then
+		restart_unit "обработчик завис: started_at старше $((age / 60)) мин (ошибок в окне: $cnt)"
+		return 0
+	fi
+	if [ "$cnt" -ge "$THRESHOLD" ]; then
+		restart_unit "ошибок $cnt за $WINDOW (CONNECTION_NOT_INITED / engine was closed)"
+		return 0
+	fi
+	return 0
 }
 
 case "${1:-}" in
@@ -79,13 +111,19 @@ case "${1:-}" in
 		done
 		;;
 	--status)
-		echo "юнит:     $UNIT"
-		echo "окно:     $WINDOW (порог $THRESHOLD ошибок)"
-		echo "cooldown: ${COOLDOWN}s"
-		if proxy_up; then
-			echo "прокси:   $PROXY доступен"
+		age="$(stuck_age)"
+		echo "юнит:      $UNIT"
+		echo "ошибки:    окно $WINDOW, порог $THRESHOLD ($ERR_RE)"
+		if [ -n "$age" ]; then
+			echo "зависание: started_at старше $((${STUCK_AFTER} / 60)) мин; сейчас $((age / 60)) мин"
 		else
-			echo "прокси:   $PROXY НЕ доступен"
+			echo "зависание: started_at старше $((${STUCK_AFTER} / 60)) мин; строк taking long нет"
+		fi
+		echo "cooldown:  ${COOLDOWN}s"
+		if proxy_up; then
+			echo "прокси:    $PROXY доступен"
+		else
+			echo "прокси:    $PROXY НЕ доступен"
 		fi
 		echo "ошибок в окне: $(count_errors)"
 		echo "--- лог (RAM: $LOG) ---"
