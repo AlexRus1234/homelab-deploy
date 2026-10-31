@@ -1,3 +1,6 @@
+> **Это зеркало репозитория. Оригинал находится по адресу:**
+> [https://git.alexrus1234.ru/AlexRus1234/homelab-deploy](https://git.alexrus1234.ru/AlexRus1234/homelab-deploy)
+
 # homelab-deploy
 
 Монорепозиторий конфигураций домашнего дата-центра (HomeLab). Управление сервисами осуществляется по модели **GitOps**: все изменения фиксируются в репозитории, а целевые ВМ автоматически подтягивают их через Pull-механизм (Forgejo Webhook + Sparse-Checkout + Rootless Podman Quadlets).
