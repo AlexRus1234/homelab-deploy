@@ -43,6 +43,7 @@
 | 14 | [`14_SFTPGo_облако.md`](docs/Настройка/14_SFTPGo_облако.md) | Файловое облако поверх NAS: LXC, SSO (OIDC), SFTP |
 | 15 | [`15_PBS_сервер.md`](docs/Настройка/15_PBS_сервер.md) | PBS в LXC: datastore на SMB, GC/prune, бэкап самого PBS |
 | 16 | [`16_Matrix_мост_Telegram.md`](docs/Настройка/16_Matrix_мост_Telegram.md) | Мост Matrix↔Telegram (`mautrix-telegram`, Go): appservice, puppet-логины, база, обновление |
+| 17 | [`17_Jellyfin_медиасервер.md`](docs/Настройка/17_Jellyfin_медиасервер.md) | Jellyfin в LXC на YADR00: проброс iGPU (idmap), QSV-транскод, шара с медиатекой — **временно, вне GitOps** |
 
 ## Проверки контура перед пушем
 

@@ -39,6 +39,7 @@
 | Authentik | ВМ (VM 102) | `172.20.5.4` | SSO-провайдер ([11 — Authentik](../Настройка/11_Authentik_SSO.md)) |
 | Vaultwarden | LXC | `172.20.5.6` | Менеджер паролей (из эп. 6; **планируется переделка**) |
 | `obshaga` | ВМ (VM 115) | `172.20.5.17` | Пользовательские сервисы (Homepage, Memos, Mortis) — GitOps |
+| jellyfin | LXC (CT 125) | `172.20.5.27` | Медиасервер, QSV с проброшенного iGPU, медиатека с NAS — **временное решение, вне GitOps** ([17 — Jellyfin](../Настройка/17_Jellyfin_медиасервер.md)) |
 
 > Шаблон базовой ВМ (Arch, `Base`, **VM 114**) хранится на этом узле; из него разворачиваются ВМ `obshaga` и Authentik (а также клон для runner — но сам `gitrunner` живёт на [YADR01](YADR01_Proxmox.md)).
 
