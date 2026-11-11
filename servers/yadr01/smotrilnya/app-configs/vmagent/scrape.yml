@@ -20,12 +20,15 @@ global:
 scrape_configs:
   - job_name: node
     static_configs:
-      - targets: ["172.20.6.13:9100"]
+      # host.containers.internal = 169.254.1.2 (podman прописывает его в /etc/hosts):
+      # rootless-контейнер в bridge-сети НЕ доходит до хоста по его LAN-адресу —
+      # 172.20.6.13:9100 из контейнера даёт «connection refused».
+      - targets: ["host.containers.internal:9100"]
         labels: {instance: "smotrilnya", host: "smotrilnya"}
 
   - job_name: podman
     static_configs:
-      - targets: ["172.20.6.13:9882"]
+      - targets: ["host.containers.internal:9882"]
         labels: {instance: "smotrilnya", host: "smotrilnya"}
 
   - job_name: grafana
