@@ -1,0 +1,39 @@
+[Unit]
+Description=Grafana (визуализация метрик)
+After=network-online.target
+
+[Container]
+# Образ из своего реестра. Политика — как во всём контуре: `:latest` +
+# AutoUpdate=registry, обновляется пушем (sync-state.sh) и ночным таймером 03:00–04:00.
+Image=git.yadr00.internal/build/grafana:latest
+AutoUpdate=registry
+ContainerName=grafana
+Network=apps.network
+
+# Образ собран с пользователем grafana (uid 472, gid root): без этого маппинга
+# bind-mount каталога состояния окажется чужим и Grafana не сможет писать.
+UserNS=keep-id:uid=472,gid=0
+
+PublishPort=10000:3000
+
+# Состояние — локальная sqlite в каталоге данных образа (GF_PATHS_DATA=/var/lib/grafana):
+# базы `grafana` на PostgreSQL SKLD00 нет, а её создание — изменение на NAS, которого
+# эта ВМ не делает. Дашборды и источники всё равно ведутся в git (provisioning), так что
+# в базе живут только пользователи и настройки UI — расходное.
+# Каталог на хосте создаётся заранее и принадлежит app-runner: podman иначе создаст его
+# от root, и uid 472 внутрь не запишет.
+Volume=/var/lib/grafana:/var/lib/grafana:Z
+
+# Provisioning (datasource + dashboards) и env-файл с секретами лежат в /opt/appdata/config/grafana
+# (rsync из app-configs, .env сюда не попадает — он gitignored и создаётся на ВМ руками).
+Volume=/opt/appdata/config/grafana/provisioning:/etc/grafana/provisioning:ro,Z
+EnvironmentFile=/opt/appdata/config/grafana/grafana.env
+
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
+
+Label=Grafana
+Label=10000
+Label=proto-http
+
+[Install]
+WantedBy=default.target

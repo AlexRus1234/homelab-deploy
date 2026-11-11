@@ -1,0 +1,37 @@
+[Unit]
+Description=vmagent (сбор метрик, буфер на диске, remote_write в VictoriaMetrics)
+After=network-online.target
+
+[Container]
+# Один образ на два процесса: vmagent и vmalert. Команду задаёт Exec=, поэтому
+# образ у обоих юнитов один и тот же.
+Image=git.yadr00.internal/build/victoria-tools:latest
+AutoUpdate=registry
+ContainerName=vmagent
+Network=apps.network
+
+# В образе пользователь nonroot (uid/gid 10001) и каталог /var/lib/victoria-tools.
+UserNS=keep-id:uid=10001,gid=10001
+
+# Хранилище — VictoriaMetrics на SKLD00 (инстанс victoriametrics1, LAN-адрес).
+# Источники на самом SKLD00 сюда НЕ попадают: его экспортёры слушают только
+# сегмент observ0 (172.26.50.1), который из LAN не маршрутизируется — их скребёт
+# локальный victoriametrics1.
+Exec=/usr/local/bin/vmagent -promscrape.config=/etc/vmagent/scrape.yml -remoteWrite.url=http://172.20.50.100:8428 -remoteWrite.tmpDataPath=/var/lib/victoria-tools/vmagent -remoteWrite.maxDiskUsagePerURL=512MB -httpListenAddr=:8429
+
+PublishPort=10001:8429
+
+# Буфер remote_write — не «состояние», а очередь на отправку; второго диска у ВМ нет,
+# поэтому каталог на системном диске. maxDiskUsagePerURL ограничивает его 512 МБ,
+# чтобы лежащее хранилище не съело корень. Каталог создаётся заранее от app-runner.
+Volume=/var/lib/vmagent:/var/lib/victoria-tools/vmagent:Z
+Volume=/opt/appdata/config/vmagent/scrape.yml:/etc/vmagent/scrape.yml:ro,Z
+
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:8429/health || exit 1
+
+Label=vmagent
+Label=10001
+Label=proto-http
+
+[Install]
+WantedBy=default.target

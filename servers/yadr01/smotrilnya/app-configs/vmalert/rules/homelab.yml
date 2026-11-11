@@ -1,0 +1,35 @@
+# Правила алертинга. Считает vmalert, читая данные из VictoriaMetrics на SKLD00,
+# отправляет в Alertmanager; получатель там нулевой (Matrix-бота в этой ВМ нет).
+#
+# В правилах только те метрики, которые точно существуют: up (создаёт сам vmagent),
+# probe_success (blackbox) и node_filesystem_* (node_exporter). Имена метрик vmagent
+# и podman-exporter на живой системе сверить (`curl :8429/metrics | grep vmagent_`)
+# прежде чем добавлять правила по ним.
+groups:
+  - name: homelab
+    interval: 30s
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Цель {{ $labels.instance }} (job {{ $labels.job }}) не отвечает"
+
+      - alert: ProbeFailing
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Проверка {{ $labels.instance }} падает"
+
+      - alert: RootFilesystemFilling
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "На {{ $labels.instance }} свободно меньше 15% корня"

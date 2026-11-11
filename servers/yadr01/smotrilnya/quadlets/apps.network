@@ -1,0 +1,8 @@
+[Unit]
+Description=Общая rootless-сеть для связки сервисов (aardvark-dns включён по умолчанию у кастомных сетей)
+
+[Network]
+NetworkName=apps
+
+[Install]
+WantedBy=default.target

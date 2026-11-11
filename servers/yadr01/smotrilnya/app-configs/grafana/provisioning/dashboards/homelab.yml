@@ -1,0 +1,16 @@
+# Провайдер дашбордов: JSON берутся из этого же каталога (он смонтирован в контейнер
+# из /opt/appdata/config/grafana/provisioning), поэтому дашборды ведутся в git,
+# а не руками в UI. allowUiUpdates=false — правка «в интерфейсе» не переживёт рестарт,
+# это осознанно: источник истины репозиторий.
+apiVersion: 1
+
+providers:
+  - name: homelab
+    orgId: 1
+    folder: HomeLab
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards

@@ -1,0 +1,32 @@
+# Модули проверок blackbox_exporter.
+#
+# ICMP-модуля здесь нет намеренно: контейнер запускается rootless, а icmp-пробер
+# требует CAP_NET_RAW — в этом режиме он не поднимется. Проверки доступности
+# сервисов идут по HTTP; если понадобится ICMP, это отдельное решение (raw-сокет
+# или проба с хоста, а не из контейнера).
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      # Редирект считаем успехом: часть сервисов уводит на SSO.
+      follow_redirects: true
+
+  http_2xx_insecure:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: true
+      # Резервный модуль. Корень Step-CA в образ запечён (COPY step-ca.crt +
+      # update-ca-certificates), поэтому основной http_2xx проверяет и TLS;
+      # этот модуль нужен только для сервиса с чужим или битым сертификатом.
+      tls_config:
+        insecure_skip_verify: true
+
+  tcp_connect:
+    prober: tcp
+    timeout: 5s

@@ -1,0 +1,21 @@
+# Политика уведомлений. Получатель НУЛЕВОЙ: бот Matrix и приёмник вебхуков в этой ВМ
+# не разворачиваются, поэтому маршрут ведёт в пустой receiver — алерты видны в UI
+# Alertmanager, но никуда не отправляются.
+#
+# Когда появится Matrix-бот: сюда добавляется webhook_configs с адресом LAN этой ВМ
+# (`http://172.20.6.13:<порт>/alerts`), а НЕ 127.0.0.1 — у контейнера свой loopback,
+# и вебхук на хостовый 127.0.0.1 изнутри контейнера не дойдёт.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "null"
+  group_by: ["alertname"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+# Имя получателя «null» пишется в кавычках: без них YAML отдаст None, и Alertmanager
+# не запустится с «receiver not found».
+receivers:
+  - name: "null"

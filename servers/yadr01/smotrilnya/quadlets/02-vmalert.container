@@ -1,0 +1,28 @@
+[Unit]
+Description=vmalert (вычисление правил алертинга)
+After=network-online.target
+
+[Container]
+# Тот же образ, что у vmagent, — другой Exec=. Так один образ обслуживает оба процесса.
+Image=git.yadr00.internal/build/victoria-tools:latest
+AutoUpdate=registry
+ContainerName=vmalert
+Network=apps.network
+UserNS=keep-id:uid=10001,gid=10001
+
+Exec=/usr/local/bin/vmalert -rule=/etc/vmalert/rules -datasource.url=http://172.20.50.100:8428 -notifier.url=http://alertmanager:9093 -httpListenAddr=:8880 -evaluationInterval=30s
+
+PublishPort=10002:8880
+
+# Правила лежат в git (app-configs/vmalert/rules → /opt/appdata/config/vmalert/rules).
+# Каталог монтируется целиком: новый .yml в гите подхватывается перезапуском юнита.
+Volume=/opt/appdata/config/vmalert:/etc/vmalert:ro,Z
+
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:8880/health || exit 1
+
+Label=vmalert
+Label=10002
+Label=proto-http
+
+[Install]
+WantedBy=default.target

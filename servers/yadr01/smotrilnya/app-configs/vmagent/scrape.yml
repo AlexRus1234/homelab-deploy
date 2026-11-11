@@ -1,0 +1,73 @@
+# Скрейп-конфиг vmagent на ВМ smotrilnya.
+#
+# Что здесь есть и почему только это:
+#   * сам хост ВМ  — node_exporter-loc (пакет, слушает LAN-адрес ВМ) и
+#     prometheus-podman-exporter-loc (user-юнит, rootless-сокет podman);
+#   * контейнеры стека — по именам в общей сети apps.network;
+#   * blackbox — активные проверки сервисов лабы (HTTP).
+#
+# Чего здесь НЕТ намеренно: экспортёров SKLD00 (node/smartctl/zfs). Они слушают только
+# 172.26.50.1 — адрес бриджа observ0, который из LAN не маршрутизируется. Их скребёт
+# victoriametrics1 внутри узла, и это осознанное решение (вариант «а»): источники
+# не выставляются в сеть.
+#
+# Адрес ВМ ниже — 172.20.6.13. Если при установке выбран другой, меняется ровно
+# два места: джобы node и podman (и такие же два адреса в app-configs/node/).
+global:
+  scrape_interval: 30s
+  scrape_timeout: 5s
+
+scrape_configs:
+  - job_name: node
+    static_configs:
+      - targets: ["172.20.6.13:9100"]
+        labels: {instance: "smotrilnya", host: "smotrilnya"}
+
+  - job_name: podman
+    static_configs:
+      - targets: ["172.20.6.13:9882"]
+        labels: {instance: "smotrilnya", host: "smotrilnya"}
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels: {host: "smotrilnya"}
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+        labels: {host: "smotrilnya"}
+
+  - job_name: vmalert
+    static_configs:
+      - targets: ["vmalert:8880"]
+        labels: {host: "smotrilnya"}
+
+  # Служебные метрики самого blackbox (сколько проверок, ошибки резолва).
+  - job_name: blackbox
+    static_configs:
+      - targets: ["blackbox:9115"]
+        labels: {host: "smotrilnya"}
+
+  # Активные проверки: /probe возвращает метрики цели, а не свои — отсюда релейбл
+  # адреса в параметр target, иначе vmagent скребёт сам blackbox.
+  - job_name: probe-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://git.yadr00.internal
+          - https://proxmox.yadr00.internal
+          - https://homepage.obshaga.yadr00.internal
+          - https://matrix.yadr01.internal
+          - https://pbs.yadr01.internal
+          - https://khrazhevnik.panelka.yadr01.internal/rpm/tw-oss/repodata/repomd.xml
+          # корень Хражевника отдаёт 404, а индекс склада — 200: проверяем склад, а не заглушку
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

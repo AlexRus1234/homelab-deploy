@@ -1,0 +1,14 @@
+# Источник данных Grafana: VictoriaMetrics single-node на SKLD00 (инстанс victoriametrics1).
+# httpMethod POST — рекомендован для VictoriaMetrics: длинные запросы не упираются в лимит URL.
+apiVersion: 1
+
+datasources:
+  - name: VictoriaMetrics
+    type: prometheus
+    access: proxy
+    url: http://172.20.50.100:8428
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 30s

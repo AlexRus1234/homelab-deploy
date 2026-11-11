@@ -1,0 +1,31 @@
+[Unit]
+Description=Alertmanager (группировка и хранение алертов, получатель нулевой)
+After=network-online.target
+
+[Container]
+Image=git.yadr00.internal/build/alertmanager:latest
+AutoUpdate=registry
+ContainerName=alertmanager
+Network=apps.network
+UserNS=keep-id:uid=10001,gid=10001
+
+PublishPort=10003:9093
+
+# Конфиг: маршрут и нулевой получатель. Бот Matrix и приёмник вебхуков в этой ВМ
+# не разворачиваются; когда появятся — адрес в конфиге должен быть LAN-адресом ВМ,
+# а не 127.0.0.1: у контейнера свой loopback.
+Volume=/opt/appdata/config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro,Z
+
+# Тишины (silences) и журнал уведомлений — вынужденно локальны: у Alertmanager нет
+# внешнего хранилища. Второго диска у ВМ нет, каталог на системном и создаётся заранее
+# от app-runner.
+Volume=/var/lib/alertmanager:/alertmanager:Z
+
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:9093/-/healthy || exit 1
+
+Label=alertmanager
+Label=10003
+Label=proto-http
+
+[Install]
+WantedBy=default.target

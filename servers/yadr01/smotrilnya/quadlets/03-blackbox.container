@@ -1,0 +1,25 @@
+[Unit]
+Description=blackbox_exporter (активные проверки HTTP/TCP/DNS)
+After=network-online.target
+
+[Container]
+Image=git.yadr00.internal/build/blackbox_exporter:latest
+AutoUpdate=registry
+ContainerName=blackbox
+Network=apps.network
+UserNS=keep-id:uid=10001,gid=10001
+
+# Команда — из CMD образа (--config.file=/etc/blackbox_exporter/config.yml),
+# поэтому свой Exec= не задаём: конфиг подменяется монтированием ниже.
+PublishPort=10004:9115
+
+Volume=/opt/appdata/config/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro,Z
+
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:9115/ || exit 1
+
+Label=blackbox
+Label=10004
+Label=proto-http
+
+[Install]
+WantedBy=default.target
