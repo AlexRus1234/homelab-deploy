@@ -10,7 +10,10 @@ ContainerName=vmalert
 Network=apps.network
 UserNS=keep-id:uid=10001,gid=10001
 
-Exec=/usr/local/bin/vmalert -rule=/etc/vmalert/rules -datasource.url=http://172.20.50.100:8428 -notifier.url=http://alertmanager:9093 -httpListenAddr=:8880 -evaluationInterval=30s
+# -rule принимает ФАЙЛ или маску, но НЕ каталог: с `-rule=/etc/vmalert/rules`
+# vmalert падает с «read /etc/vmalert/rules: is a directory». Маску раскрывает
+# сам vmalert, шелла в Exec= нет, поэтому `*` доезжает до него как есть.
+Exec=/usr/local/bin/vmalert -rule=/etc/vmalert/rules/*.yml -datasource.url=http://172.20.50.100:8428 -notifier.url=http://alertmanager:9093 -httpListenAddr=:8880 -evaluationInterval=30s
 
 PublishPort=10002:8880
 

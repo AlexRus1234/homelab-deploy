@@ -108,8 +108,19 @@
    (дефолт юнита — `127.0.0.1:9001`, из LAN он недостижим), `~app-runner/.config/webhook-loc/hooks.yaml`
    с хуком `sync-smotrilnya` (HMAC по заголовку `X-Gitea-Signature`), вебхук в Forgejo на
    `http://172.20.6.13:9000/hooks/sync-smotrilnya`.
-8. Первый push в эту папку → пять контейнеров поднимаются. Приёмка: `systemctl --user status`
+8. Первый прогон — **руками**: контур применяет только разницу коммитов, а в свежем чек-ауте разницы нет
+   (`sync-state.sh` выходит на «Изменений не найдено» до `rsync`). От `app-runner`:
+   `mkdir -p ~/.config/containers/systemd /opt/appdata/config` (rsync не создаёт промежуточные каталоги) →
+   `rsync -rlptD --delete servers/yadr01/smotrilnya/quadlets/ ~/.config/containers/systemd/` →
+   `rsync -rlptD servers/yadr01/smotrilnya/app-configs/ /opt/appdata/config/` →
+   `systemctl --user daemon-reload` → `systemctl --user start apps-network.service` →
+   `systemctl --user start 00-grafana 01-vmagent 02-vmalert 03-blackbox 04-alertmanager`.
+   Quadlet-юниты **не включаются**: `systemctl enable` отвечает «transient or generated», автозапуск
+   обеспечивает генератор через `default.target.wants` — проверка `ls /run/user/<uid>/systemd/generator/default.target.wants/`.
+9. Дальше — авто: любой push в эту папку запускает `sync-state.sh` через вебхук. Приёмка: `systemctl --user status`
    по пяти юнитам, `curl` на `:10000/api/health`, таргеты `up` в vmagent (`:10001/targets`).
+   Grafana не поднимется без `/opt/appdata/config/grafana/grafana.env` (`EnvironmentFile=` без минуса —
+   файл обязателен), vmalert не поднимется, если `-rule` указывает на каталог, а не на маску `*.yml`.
 
 ## Что проверено, а что на месте
 
