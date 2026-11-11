@@ -17,7 +17,7 @@ UserNS=keep-id:uid=10001,gid=10001
 # Источники на самом SKLD00 сюда НЕ попадают: его экспортёры слушают только
 # сегмент observ0 (172.26.50.1), который из LAN не маршрутизируется — их скребёт
 # локальный victoriametrics1.
-Exec=/usr/local/bin/vmagent -promscrape.config=/etc/vmagent/scrape.yml -remoteWrite.url=http://172.20.50.100:8428 -remoteWrite.tmpDataPath=/var/lib/victoria-tools/vmagent -remoteWrite.maxDiskUsagePerURL=512MB -httpListenAddr=:8429
+Exec=/usr/local/bin/vmagent -promscrape.config=/etc/vmagent/scrape.yml -remoteWrite.url=http://172.20.50.100:8428/api/v1/write -remoteWrite.tmpDataPath=/var/lib/victoria-tools/vmagent -remoteWrite.maxDiskUsagePerURL=512MB -httpListenAddr=:8429
 
 PublishPort=10001:8429
 
