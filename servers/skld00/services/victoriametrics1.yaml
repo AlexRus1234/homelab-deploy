@@ -29,6 +29,12 @@ config:
   limits.cpu: "4"
   limits.memory: 4GiB
 
+  # Автостарт после перезагрузки узла. Без него инстанс остаётся STOPPED и метрики
+  # не возвращаются без ручного `incus-loc start` (проверено перезагрузкой SKLD00).
+  # Ключ скалярный → применяется живьём (`config set`), состав не меняется и пересоздания нет.
+  boot.autostart: "true"
+  boot.autostart.priority: "10"
+
   # --- политика для хостового контура ---
   user.managed-by: homelab-deploy/skld00     # маркер: без него контур инстанс не трогает и не снимает
   user.role: victoriametrics

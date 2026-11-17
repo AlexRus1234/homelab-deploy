@@ -35,6 +35,11 @@ config:
   limits.cpu: "2"
   limits.memory: 2GiB
 
+  # Автостарт после перезагрузки узла: логи должны возвращаться сами.
+  # Приоритет ниже, чем у метрик, — порядок подъёма детерминирован.
+  boot.autostart: "true"
+  boot.autostart.priority: "20"
+
   # --- политика для хостового контура (см. «актуальная схема.md» в lxc-build) ---
   user.managed-by: homelab-deploy/skld00     # маркер: без него контур инстанс не трогает и не снимает
   user.role: victorialogs
