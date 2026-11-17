@@ -112,7 +112,7 @@ check "2: пакет сервиса"            "victorialogs-loc"    "$(dcl use
 check "2: датасет данных"           "tank/vl-data"        "$(dcl user.data_dataset)"
 check "2: политика обновления"      "inplace"             "$(dcl user.update_policy)"
 check "2: маркер контура"           "homelab-deploy/skld00" "$(dcl user.managed-by)"
-check "2: скалярных ключей 11"      "11"                  "$(wc -l < "$W/scalars" | tr -d ' ')"
+check "2: скалярных ключей 13"      "13"                  "$(wc -l < "$W/scalars" | tr -d ' ')"
 has   "2: healthcheck попадает в скаляры" "user.healthcheck=curl -fsS" "$W/scalars"
 nothas "2: в составе нет скалярных ключей" "limits.cpu" "$W/rest"
 nothas "2: в составе нет raw.idmap"        "raw.idmap"   "$W/rest"
