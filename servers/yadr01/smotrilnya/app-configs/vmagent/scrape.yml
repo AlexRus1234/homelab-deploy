@@ -67,6 +67,9 @@ scrape_configs:
           - https://pbs.yadr01.internal
           - https://khrazhevnik.panelka.yadr01.internal/rpm/tw-oss/repodata/repomd.xml
           # корень Хражевника отдаёт 404, а индекс склада — 200: проверяем склад, а не заглушку
+        # Метка host обязательна: без неё эти серии (probe_success) не попадают в правила
+        # и панели, отфильтрованные по этой ВМ, — у probe-джобы нет static labels по умолчанию.
+        labels: {host: "smotrilnya"}
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
