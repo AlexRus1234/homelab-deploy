@@ -25,7 +25,7 @@
 | :--- | :--- |
 | метрики | VictoriaMetrics на SKLD00 `172.20.50.100:8428` |
 | логи | VictoriaLogs на SKLD00 `172.20.50.101:9428` |
-| Grafana (пользователи, настройки UI) | локальная sqlite, `/var/lib/grafana`; дашборды и источник — provisioning из git |
+| Grafana (пользователи, настройки UI) | локальная sqlite, `/var/lib/grafana`; дашборд и источник данных — provisioning из git |
 | Alertmanager (silences, журнал уведомлений) | локально, `/var/lib/alertmanager` — внешнего хранилища у него нет |
 | vmagent | локально, `/var/lib/vmagent` — это очередь отправки, а не данные |
 
@@ -127,6 +127,9 @@
    по пяти юнитам, `curl` на `:10000/api/health`, таргеты `up` в vmagent (`:10001/targets`).
    Grafana не поднимется без `/opt/appdata/config/grafana/grafana.env` (`EnvironmentFile=` без минуса —
    файл обязателен), vmalert не поднимется, если `-rule` указывает на каталог, а не на маску `*.yml`.
+   Дашборд `smotrilnya-overview` появляется в папке HomeLab сам: провайдер опрашивает каталог раз в 30 с.
+   Если менялся файл источника данных (`provisioning/datasources/`), нужен один `systemctl --user restart 00-grafana` —
+   datasource-провижнинг читается при старте, в отличие от дашбордов.
 
 ## Что проверено, а что на месте
 

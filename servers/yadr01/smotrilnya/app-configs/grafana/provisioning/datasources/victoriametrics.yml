@@ -4,6 +4,10 @@ apiVersion: 1
 
 datasources:
   - name: VictoriaMetrics
+    # uid фиксирован: на него ссылаются дашборды из provisioning/dashboards.
+    # Без него Grafana выдаёт uid сама, и панели после пересоздания источника
+    # остаются с «datasource not found».
+    uid: victoriametrics
     type: prometheus
     access: proxy
     url: http://172.20.50.100:8428
